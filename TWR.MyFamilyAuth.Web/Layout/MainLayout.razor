@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="d-flex flex-column min-vh-100">
+    <NavMenu />
+    <main class="flex-grow-1 container-fluid py-3">
+        @Body
+    </main>
+    <footer class="text-center text-muted small py-2 border-top">
+        &copy; @DateTime.Now.Year TWR MyFamilyAuth
+    </footer>
+</div>

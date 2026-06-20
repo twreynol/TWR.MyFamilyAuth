@@ -1,0 +1,287 @@
+@page "/profile"
+@attribute [Authorize]
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Authorization
+
+<PageTitle>Profile — MyFamilyAuth</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h4 class="mb-4"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h4>
+
+        @if (_user is null)
+        {
+            <div class="spinner-border spinner-border-sm"></div>
+        }
+        else
+        {
+            <!-- Profile Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-semibold">Profile Info</div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(_profileMessage))
+                    {
+                        <div class="alert @(_profileError ? "alert-danger" : "alert-success") py-2">@_profileMessage</div>
+                    }
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input class="form-control" @bind="_firstName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input class="form-control" @bind="_lastName" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="_email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Timezone</label>
+                        <input class="form-control" @bind="_timezone" placeholder="America/Chicago" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Avatar</label>
+                        @if (!string.IsNullOrEmpty(_user.AvatarBase64))
+                        {
+                            <div class="mb-2">
+                                <img src="data:image/png;base64,@_user.AvatarBase64"
+                                     style="width:64px;height:64px;object-fit:cover;border-radius:50%;"
+                                     alt="Avatar" />
+                            </div>
+                        }
+                        <input type="file" class="form-control" accept="image/*" />
+                    </div>
+                    <button class="btn btn-primary" @onclick="SaveProfile" disabled="@_profileLoading">
+                        @if (_profileLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-semibold">Change Password</div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(_pwMessage))
+                    {
+                        <div class="alert @(_pwError ? "alert-danger" : "alert-success") py-2">@_pwMessage</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" @bind="_currentPw" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" @bind="_newPw" />
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" @bind="_confirmPw" />
+                    </div>
+                    <button class="btn btn-warning" @onclick="ChangePassword" disabled="@_pwLoading">
+                        @if (_pwLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Update Password
+                    </button>
+                </div>
+            </div>
+
+            <!-- App Access -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-semibold">App Access</div>
+                <div class="card-body">
+                    @if (_appAccess is null)
+                    {
+                        <div class="spinner-border spinner-border-sm"></div>
+                    }
+                    else if (!_appAccess.Any())
+                    {
+                        <p class="text-muted small mb-0">No app access granted.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var a in _appAccess)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                    <span><i class="bi bi-grid-3x3-gap me-2 text-muted"></i>@a.AppName</span>
+                                    <span class="badge bg-secondary">@(a.AppRole ?? "User")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <!-- Trusted Devices -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-shield-lock me-2"></i>Trusted Devices</span>
+                    @if (_trustedDevices is not null && _trustedDevices.Any())
+                    {
+                        <button class="btn btn-sm btn-outline-danger" @onclick="RevokeAllDevices">Revoke All</button>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_trustedDevices is null)
+                    {
+                        <div class="spinner-border spinner-border-sm"></div>
+                    }
+                    else if (!_trustedDevices.Any())
+                    {
+                        <p class="text-muted small mb-0">No trusted devices.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>App</th>
+                                        <th>IP</th>
+                                        <th>Created</th>
+                                        <th>Last Used</th>
+                                        <th>Expires</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in _trustedDevices)
+                                    {
+                                        <tr>
+                                            <td><code>@d.AppClientId</code></td>
+                                            <td>@(d.IpAddress ?? "—")</td>
+                                            <td>@d.CreatedAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                            <td>@d.LastUsedAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                            <td>@d.ExpiresAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        @onclick="() => RevokeDevice(d.Id)">Revoke</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private FamilyUserDto?        _user;
+    private List<AppAccessDto>?   _appAccess;
+    private List<TrustedDeviceVm>? _trustedDevices;
+    private string? _userId;
+
+    private record TrustedDeviceVm(Guid Id, string AppClientId, string? IpAddress,
+        DateTime CreatedAt, DateTime LastUsedAt, DateTime ExpiresAt);
+
+    // Profile fields
+    private string  _firstName     = string.Empty;
+    private string  _lastName      = string.Empty;
+    private string  _email         = string.Empty;
+    private string  _timezone      = string.Empty;
+    private bool    _profileLoading;
+    private string  _profileMessage = string.Empty;
+    private bool    _profileError;
+
+    // Password fields
+    private string  _currentPw  = string.Empty;
+    private string  _newPw      = string.Empty;
+    private string  _confirmPw  = string.Empty;
+    private bool    _pwLoading;
+    private string  _pwMessage  = string.Empty;
+    private bool    _pwError;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+        var state = await AuthState;
+        var sub   = state.User.FindFirst(u => u.Type.EndsWith("nameidentifier"))?.Value
+                    ?? state.User.FindFirst("sub")?.Value;
+        if (sub is null) return;
+        _userId = sub;
+
+        _user = await Http.GetFromJsonAsync<FamilyUserDto>($"{ApiRoutes.Users}/{sub}");
+        if (_user is not null)
+        {
+            _firstName = _user.FirstName;
+            _lastName  = _user.LastName;
+            _email     = _user.Email;
+            _timezone  = _user.TimeZoneId ?? string.Empty;
+        }
+
+        _appAccess = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-user/{sub}") ?? [];
+
+        _trustedDevices = await Http.GetFromJsonAsync<List<TrustedDeviceVm>>($"{ApiRoutes.Users}/{sub}/trusted-devices") ?? [];
+    }
+
+    private async Task RevokeDevice(Guid trustId)
+    {
+        if (_userId is null) return;
+        var r = await Http.DeleteAsync($"{ApiRoutes.Users}/{_userId}/trusted-devices/{trustId}");
+        if (r.IsSuccessStatusCode)
+            _trustedDevices = await Http.GetFromJsonAsync<List<TrustedDeviceVm>>($"{ApiRoutes.Users}/{_userId}/trusted-devices") ?? [];
+    }
+
+    private async Task RevokeAllDevices()
+    {
+        if (_userId is null || _trustedDevices is null) return;
+        foreach (var d in _trustedDevices.ToList())
+            await Http.DeleteAsync($"{ApiRoutes.Users}/{_userId}/trusted-devices/{d.Id}");
+        _trustedDevices = [];
+    }
+
+    private async Task SaveProfile()
+    {
+        _profileMessage = string.Empty;
+        if (_user is null || _userId is null) return;
+        _profileLoading = true;
+
+        var req = new UpdateUserRequest(_firstName, _lastName, _email, _user.Role, _user.IsActive,
+            _user.IsWard, _user.GuardianId, _user.MustChangePassword, _user.PasswordChangeLocked,
+            _user.AvatarBase64, string.IsNullOrEmpty(_timezone) ? null : _timezone, _user.PrimaryGroupId);
+
+        var r = await Http.PutAsJsonAsync($"{ApiRoutes.Users}/{_userId}", req);
+        _profileLoading = false;
+        if (r.IsSuccessStatusCode)
+        {
+            _profileMessage = "Profile saved."; _profileError = false;
+            _user = await r.Content.ReadFromJsonAsync<FamilyUserDto>();
+        }
+        else
+        {
+            _profileMessage = $"Error: {await r.Content.ReadAsStringAsync()}"; _profileError = true;
+        }
+    }
+
+    private async Task ChangePassword()
+    {
+        _pwMessage = string.Empty;
+        if (_userId is null) return;
+        if (_newPw.Length < 8) { _pwMessage = "New password must be at least 8 characters."; _pwError = true; return; }
+        if (_newPw != _confirmPw) { _pwMessage = "Passwords do not match."; _pwError = true; return; }
+
+        _pwLoading = true;
+        var req = new ChangePasswordRequest(_currentPw, _newPw);
+        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.Users}/{_userId}/change-password", req);
+        _pwLoading = false;
+
+        if (r.IsSuccessStatusCode)
+        {
+            _pwMessage = "Password updated."; _pwError = false;
+            _currentPw = string.Empty; _newPw = string.Empty; _confirmPw = string.Empty;
+        }
+        else
+        {
+            _pwMessage = $"Error: {await r.Content.ReadAsStringAsync()}"; _pwError = true;
+        }
+    }
+}

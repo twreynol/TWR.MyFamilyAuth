@@ -1,0 +1,340 @@
+@page "/admin/groups"
+@attribute [Authorize(Roles = "SuperAdmin,FamilyAdmin")]
+@inject HttpClient Http
+
+<PageTitle>Groups — Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>Groups</h4>
+    <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+        <i class="bi bi-plus-circle me-1"></i>New Group
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") py-2 mb-3">@_message</div>
+}
+
+@if (_groups is null)
+{
+    <div class="spinner-border spinner-border-sm"></div>
+}
+else
+{
+    <table class="table table-sm table-hover align-middle">
+        <thead>
+            <tr>
+                <th style="width:2rem"></th>
+                <th>Name</th>
+                <th>Parent Group</th>
+                <th>Members</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in _groups)
+            {
+                var expanded = _expandedIds.Contains(g.Id);
+                <tr>
+                    <td>
+                        <button class="btn btn-sm btn-link p-0" @onclick="() => ToggleExpand(g.Id)">
+                            <i class="bi @(expanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                        </button>
+                    </td>
+                    <td>@g.Name</td>
+                    <td>@(ParentName(g.ParentGroupId))</td>
+                    <td>@g.Members.Count</td>
+                    <td>
+                        @if (g.IsActive)
+                        { <span class="badge bg-success">Active</span> }
+                        else
+                        { <span class="badge bg-danger">Inactive</span> }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditModal(g)">Edit</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenAddMemberModal(g)">Add Member</button>
+                    </td>
+                </tr>
+                @if (expanded)
+                {
+                    <tr>
+                        <td></td>
+                        <td colspan="5" class="p-0">
+                            <div class="px-3 pb-2">
+                                <table class="table table-xs table-sm mb-0 border">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Limited</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var m in g.Members)
+                                        {
+                                            <tr>
+                                                <td>@m.FullName</td>
+                                                <td>@m.Email</td>
+                                                <td>@m.GroupRole</td>
+                                                <td>@(m.IsLimitedMember ? "Yes" : "No")</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => RemoveMember(g.Id, m.UserId)">Remove</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                        @if (!g.Members.Any())
+                                        {
+                                            <tr><td colspan="5" class="text-muted small">No members.</td></tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@* Group create/edit modal *@
+@if (_showGroupModal)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editGroup is null ? "New Group" : "Edit Group")</h5>
+                    <button class="btn-close" @onclick="CloseGroupModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger py-2">@_modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="_groupForm.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Parent Group (optional)</label>
+                        <select class="form-select" @bind="_groupForm.ParentGroupId">
+                            <option value="">— none —</option>
+                            @if (_groups is not null)
+                            {
+                                @foreach (var g in _groups.Where(g => _editGroup is null || g.Id != _editGroup.Id))
+                                {
+                                    <option value="@g.Id">@g.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseGroupModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveGroup" disabled="@_modalLoading">
+                        @if (_modalLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Add member modal *@
+@if (_showMemberModal && _memberTargetGroup is not null)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Member to @_memberTargetGroup.Name</h5>
+                    <button class="btn-close" @onclick="() => _showMemberModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_memberError))
+                    {
+                        <div class="alert alert-danger py-2">@_memberError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <select class="form-select" @bind="_memberUserId">
+                            <option value="">— select user —</option>
+                            @if (_allUsers is not null)
+                            {
+                                @foreach (var u in _allUsers)
+                                {
+                                    <option value="@u.Id">@u.FullName (@u.Email)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" @bind="_memberRole">
+                            <option value="Member">Member</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Owner">Owner</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="limitedMember" @bind="_memberLimited" />
+                        <label class="form-check-label" for="limitedMember">Limited Member</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => _showMemberModal = false">Cancel</button>
+                    <button class="btn btn-primary" @onclick="AddMember" disabled="@(_memberUserId == Guid.Empty || _memberLoading)">
+                        @if (_memberLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Add Member
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private record PagedUsersResult(List<FamilyUserDto> Users, int Total, int Page, int PageSize);
+
+    private class GroupForm
+    {
+        public string  Name          { get; set; } = string.Empty;
+        public string? ParentGroupId { get; set; }
+    }
+
+    private List<FamilyGroupDto>?  _groups;
+    private List<FamilyUserDto>?   _allUsers;
+    private HashSet<Guid>          _expandedIds = new();
+    private string  _message        = string.Empty;
+    private bool    _messageIsError;
+
+    private bool         _showGroupModal;
+    private bool         _modalLoading;
+    private string       _modalError   = string.Empty;
+    private FamilyGroupDto? _editGroup;
+    private GroupForm    _groupForm    = new();
+
+    private bool          _showMemberModal;
+    private bool          _memberLoading;
+    private string        _memberError  = string.Empty;
+    private FamilyGroupDto? _memberTargetGroup;
+    private Guid          _memberUserId;
+    private string        _memberRole   = "Member";
+    private bool          _memberLimited;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        var paged = await Http.GetFromJsonAsync<PagedUsersResult>($"{ApiRoutes.Users}?pageSize=1000");
+        _allUsers = paged?.Users ?? [];
+    }
+
+    private async Task LoadAsync()
+    {
+        _groups = await Http.GetFromJsonAsync<List<FamilyGroupDto>>(ApiRoutes.Groups) ?? [];
+    }
+
+    private void ToggleExpand(Guid id)
+    {
+        if (!_expandedIds.Add(id)) _expandedIds.Remove(id);
+    }
+
+    private string? ParentName(Guid? parentId)
+        => parentId is null ? null : _groups?.FirstOrDefault(g => g.Id == parentId)?.Name;
+
+    private void OpenCreateModal()
+    {
+        _editGroup  = null;
+        _groupForm  = new GroupForm();
+        _modalError = string.Empty;
+        _showGroupModal = true;
+    }
+
+    private void OpenEditModal(FamilyGroupDto g)
+    {
+        _editGroup = g;
+        _groupForm = new GroupForm { Name = g.Name, ParentGroupId = g.ParentGroupId?.ToString() };
+        _modalError = string.Empty;
+        _showGroupModal = true;
+    }
+
+    private void CloseGroupModal() => _showGroupModal = false;
+
+    private async Task SaveGroup()
+    {
+        _modalError   = string.Empty;
+        _modalLoading = true;
+
+        Guid? pgId = Guid.TryParse(_groupForm.ParentGroupId, out var pg) ? pg : null;
+
+        System.Net.Http.HttpResponseMessage r;
+        if (_editGroup is null)
+        {
+            r = await Http.PostAsJsonAsync(ApiRoutes.Groups, new CreateGroupRequest(_groupForm.Name, pgId));
+        }
+        else
+        {
+            r = await Http.PutAsJsonAsync($"{ApiRoutes.Groups}/{_editGroup.Id}", new UpdateGroupRequest(_groupForm.Name, _editGroup.IsActive));
+        }
+
+        _modalLoading = false;
+        if (r.IsSuccessStatusCode)
+        {
+            _showGroupModal = false;
+            _message = _editGroup is null ? "Group created." : "Group updated.";
+            _messageIsError = false;
+            await LoadAsync();
+        }
+        else
+        {
+            _modalError = $"Error: {await r.Content.ReadAsStringAsync()}";
+        }
+    }
+
+    private void OpenAddMemberModal(FamilyGroupDto g)
+    {
+        _memberTargetGroup = g;
+        _memberUserId      = Guid.Empty;
+        _memberRole        = "Member";
+        _memberLimited     = false;
+        _memberError       = string.Empty;
+        _showMemberModal   = true;
+    }
+
+    private async Task AddMember()
+    {
+        _memberError   = string.Empty;
+        _memberLoading = true;
+        var req = new AddGroupMemberRequest(_memberUserId, _memberRole, _memberLimited);
+        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.Groups}/{_memberTargetGroup!.Id}/members", req);
+        _memberLoading = false;
+        if (r.IsSuccessStatusCode)
+        {
+            _showMemberModal = false;
+            _message = "Member added."; _messageIsError = false;
+            await LoadAsync();
+        }
+        else
+        {
+            _memberError = $"Error: {await r.Content.ReadAsStringAsync()}";
+        }
+    }
+
+    private async Task RemoveMember(Guid groupId, Guid userId)
+    {
+        var r = await Http.DeleteAsync($"{ApiRoutes.Groups}/{groupId}/members/{userId}");
+        if (r.IsSuccessStatusCode)
+        {
+            _message = "Member removed."; _messageIsError = false;
+            await LoadAsync();
+        }
+        else { _message = "Failed to remove member."; _messageIsError = true; }
+    }
+}

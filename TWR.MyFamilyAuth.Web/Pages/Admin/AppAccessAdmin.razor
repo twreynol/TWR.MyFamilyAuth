@@ -1,0 +1,159 @@
+@page "/admin/app-access"
+@attribute [Authorize(Roles = "SuperAdmin,FamilyAdmin")]
+@inject HttpClient Http
+@inject IAuthService AuthService
+
+<PageTitle>App Access — Admin</PageTitle>
+
+<h4 class="mb-3"><i class="bi bi-shield-lock me-2"></i>App Access Control</h4>
+
+@if (_apps is null)
+{
+    <div class="spinner-border spinner-border-sm"></div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Select App</label>
+            <select class="form-select" @onchange="LoadAccess">
+                <option value="">— choose an app —</option>
+                @foreach (var app in _apps)
+                {
+                    <option value="@app.Id">@app.Name (@app.ClientId)</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_selectedAppId != Guid.Empty && _access is not null)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">Users with access</h6>
+            <button class="btn btn-sm btn-success" @onclick="() => _showGrant = true">
+                <i class="bi bi-plus-circle me-1"></i>Grant Access
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") py-2 mb-3">@_message</div>
+        }
+
+        <table class="table table-sm table-hover">
+            <thead><tr><th>Name</th><th>Email</th><th>App Role</th><th>Granted</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in _access)
+                {
+                    <tr class="@(row.IsActive ? "" : "text-muted")">
+                        <td>@row.UserFullName</td>
+                        <td>@row.UserEmail</td>
+                        <td><span class="badge bg-secondary">@(row.AppRole ?? "User")</span></td>
+                        <td>@row.GrantedAt.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                        <td>
+                            @if (row.IsActive)
+                            { <span class="badge bg-success">Active</span> }
+                            else
+                            { <span class="badge bg-danger">Revoked</span> }
+                        </td>
+                        <td>
+                            @if (row.IsActive)
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAccess(row)">Revoke</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (_showGrant && _allUsers is not null)
+{
+    <!-- Grant modal -->
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Grant App Access</h5>
+                    <button class="btn-close" @onclick="() => _showGrant = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">User</label>
+                        <select class="form-select" @bind="_grantUserId">
+                            <option value="">— select user —</option>
+                            @foreach (var u in _allUsers.Where(u => _access?.All(a => a.FamilyUserId != u.Id || !a.IsActive) ?? true))
+                            {
+                                <option value="@u.Id">@u.FullName (@u.Email)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">App Role (optional)</label>
+                        <input class="form-control" @bind="_grantRole" placeholder="e.g. Owner, Viewer" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => _showGrant = false">Cancel</button>
+                    <button class="btn btn-success" @onclick="GrantAccess" disabled="@(_grantUserId == Guid.Empty)">Grant</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private record PagedUsersResult(List<FamilyUserDto> Users, int Total, int Page, int PageSize);
+
+    private List<RegisteredAppDto>? _apps;
+    private List<AppAccessDto>?     _access;
+    private List<FamilyUserDto>?    _allUsers;
+    private Guid   _selectedAppId;
+    private bool   _showGrant;
+    private Guid   _grantUserId;
+    private string _grantRole    = string.Empty;
+    private string _message      = string.Empty;
+    private bool   _messageIsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apps     = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
+        var paged = await Http.GetFromJsonAsync<PagedUsersResult>($"{ApiRoutes.Users}?pageSize=1000");
+        _allUsers = paged?.Users ?? [];
+    }
+
+    private async Task LoadAccess(ChangeEventArgs e)
+    {
+        if (!Guid.TryParse(e.Value?.ToString(), out _selectedAppId)) return;
+        _access = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-app/{_selectedAppId}") ?? [];
+    }
+
+    private async Task GrantAccess()
+    {
+        var req = new GrantAppAccessRequest(_grantUserId, _selectedAppId, string.IsNullOrEmpty(_grantRole) ? null : _grantRole);
+        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.AppAccess}/grant", req);
+        if (r.IsSuccessStatusCode)
+        {
+            _message        = "Access granted.";
+            _messageIsError = false;
+            _showGrant      = false;
+            _access = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-app/{_selectedAppId}") ?? [];
+        }
+        else { _message = "Failed to grant access."; _messageIsError = true; }
+    }
+
+    private async Task RevokeAccess(AppAccessDto row)
+    {
+        var req = new GrantAppAccessRequest(row.FamilyUserId, _selectedAppId, null);
+        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.AppAccess}/revoke", req);
+        if (r.IsSuccessStatusCode)
+        {
+            _message        = "Access revoked.";
+            _messageIsError = false;
+            _access = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-app/{_selectedAppId}") ?? [];
+        }
+        else { _message = "Failed to revoke access."; _messageIsError = true; }
+    }
+}

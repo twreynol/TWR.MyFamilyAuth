@@ -1,0 +1,331 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "SuperAdmin,FamilyAdmin")]
+@inject HttpClient Http
+@inject IAuthService AuthService
+
+<PageTitle>Users — Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-people me-2 text-primary"></i>Users</h4>
+    <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+        <i class="bi bi-plus-circle me-1"></i>New User
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") py-2 mb-3">@_message</div>
+}
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <input class="form-control" placeholder="Search by name or email…"
+               value="@_search" @oninput="OnSearchInput" />
+    </div>
+</div>
+
+@if (_users is null)
+{
+    <div class="spinner-border spinner-border-sm"></div>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in _users)
+            {
+                <tr>
+                    <td>@u.FullName</td>
+                    <td>@u.Email</td>
+                    <td>
+                        <span class="badge @RoleBadgeClass(u.Role)">@u.Role</span>
+                    </td>
+                    <td>
+                        @if (u.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Inactive</span>
+                        }
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditModal(u)">Edit</button>
+                        @if (u.IsActive && u.Role != "SuperAdmin")
+                        {
+                            @if (_confirmDeactivateId == u.Id)
+                            {
+                                <span class="me-1 small">Confirm?</span>
+                                <button class="btn btn-sm btn-danger me-1" @onclick="() => DeactivateUser(u.Id)">Yes</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => _confirmDeactivateId = null">No</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => _confirmDeactivateId = u.Id">Deactivate</button>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="PrevPage" disabled="@(_page <= 1)">Previous</button>
+        <span class="small">Page @_page of @TotalPages</span>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="NextPage" disabled="@(_page >= TotalPages)">Next</button>
+    </div>
+}
+
+@if (_showUserModal)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editUser is null ? "New User" : "Edit User")</h5>
+                    <button class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger py-2">@_modalError</div>
+                    }
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">First Name</label>
+                            <input class="form-control" @bind="_form.FirstName" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Last Name</label>
+                            <input class="form-control" @bind="_form.LastName" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" @bind="_form.Email" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" @bind="_form.Role">
+                            <option value="User">User</option>
+                            <option value="GroupAdmin">GroupAdmin</option>
+                            <option value="FamilyAdmin">FamilyAdmin</option>
+                            <option value="SuperAdmin">SuperAdmin</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Primary Group (optional)</label>
+                        <select class="form-select" @bind="_form.PrimaryGroupId">
+                            <option value="">— none —</option>
+                            @if (_groups is not null)
+                            {
+                                @foreach (var g in _groups)
+                                {
+                                    <option value="@g.Id">@g.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    @if (_editUser is null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" @bind="_form.Password" />
+                        </div>
+                    }
+                    <div class="mb-2 form-check">
+                        <input class="form-check-input" type="checkbox" id="mustChange" @bind="_form.MustChangePassword" />
+                        <label class="form-check-label" for="mustChange">Must Change Password</label>
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input class="form-check-input" type="checkbox" id="pwLocked" @bind="_form.PasswordChangeLocked" />
+                        <label class="form-check-label" for="pwLocked">Password Change Locked</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveUser" disabled="@_modalLoading">
+                        @if (_modalLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private record PagedResult(List<FamilyUserDto> Users, int Total, int Page, int PageSize);
+
+    private class UserForm
+    {
+        public string  FirstName            { get; set; } = string.Empty;
+        public string  LastName             { get; set; } = string.Empty;
+        public string  Email                { get; set; } = string.Empty;
+        public string  Role                 { get; set; } = "User";
+        public string  Password             { get; set; } = string.Empty;
+        public string? PrimaryGroupId       { get; set; }
+        public bool    MustChangePassword   { get; set; } = true;
+        public bool    PasswordChangeLocked { get; set; }
+    }
+
+    private List<FamilyUserDto>?   _users;
+    private List<FamilyGroupDto>?  _groups;
+    private string  _search          = string.Empty;
+    private int     _page            = 1;
+    private int     _total;
+    private const int PageSize       = 20;
+    private string  _message         = string.Empty;
+    private bool    _messageIsError;
+    private Guid?   _confirmDeactivateId;
+
+    private bool         _showUserModal;
+    private bool         _modalLoading;
+    private string       _modalError  = string.Empty;
+    private FamilyUserDto? _editUser;
+    private UserForm     _form        = new();
+
+    private System.Threading.CancellationTokenSource? _debounce;
+
+    private int TotalPages => (int)Math.Ceiling(_total / (double)PageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        _groups = (await Http.GetFromJsonAsync<List<FamilyGroupDto>>($"{ApiRoutes.Groups}")) ?? [];
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await Http.GetFromJsonAsync<PagedResult>(
+            $"{ApiRoutes.Users}?page={_page}&pageSize={PageSize}&search={Uri.EscapeDataString(_search)}");
+        _users = result?.Users ?? [];
+        _total = result?.Total ?? 0;
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        _debounce?.Cancel();
+        _debounce = new System.Threading.CancellationTokenSource();
+        var token = _debounce.Token;
+        try
+        {
+            await Task.Delay(300, token);
+            _page = 1;
+            await LoadAsync();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_page > 1) { _page--; await LoadAsync(); }
+    }
+
+    private async Task NextPage()
+    {
+        if (_page < TotalPages) { _page++; await LoadAsync(); }
+    }
+
+    private async Task DeactivateUser(Guid id)
+    {
+        _confirmDeactivateId = null;
+        var r = await Http.DeleteAsync($"{ApiRoutes.Users}/{id}");
+        if (r.IsSuccessStatusCode)
+        {
+            _message = "User deactivated."; _messageIsError = false;
+            await LoadAsync();
+        }
+        else { _message = "Failed to deactivate user."; _messageIsError = true; }
+    }
+
+    private void OpenCreateModal()
+    {
+        _editUser   = null;
+        _form       = new UserForm();
+        _modalError = string.Empty;
+        _showUserModal = true;
+    }
+
+    private void OpenEditModal(FamilyUserDto u)
+    {
+        _editUser = u;
+        _form = new UserForm
+        {
+            FirstName            = u.FirstName,
+            LastName             = u.LastName,
+            Email                = u.Email,
+            Role                 = u.Role,
+            PrimaryGroupId       = u.PrimaryGroupId?.ToString(),
+            MustChangePassword   = u.MustChangePassword,
+            PasswordChangeLocked = u.PasswordChangeLocked
+        };
+        _modalError    = string.Empty;
+        _showUserModal = true;
+    }
+
+    private void CloseModal() => _showUserModal = false;
+
+    private async Task SaveUser()
+    {
+        _modalError  = string.Empty;
+        _modalLoading = true;
+
+        Guid? pgId = Guid.TryParse(_form.PrimaryGroupId, out var pg) ? pg : null;
+
+        System.Net.Http.HttpResponseMessage r;
+        if (_editUser is null)
+        {
+            if (string.IsNullOrWhiteSpace(_form.Password))
+            {
+                _modalError = "Password is required for new users.";
+                _modalLoading = false;
+                return;
+            }
+            var req = new CreateUserRequest(_form.FirstName, _form.LastName, _form.Email,
+                _form.Password, _form.Role, pgId, _form.MustChangePassword);
+            r = await Http.PostAsJsonAsync(ApiRoutes.Users, req);
+        }
+        else
+        {
+            var req = new UpdateUserRequest(_form.FirstName, _form.LastName, _form.Email,
+                _form.Role, true, _editUser.IsWard, _editUser.GuardianId,
+                _form.MustChangePassword, _form.PasswordChangeLocked,
+                _editUser.AvatarBase64, _editUser.TimeZoneId, pgId);
+            r = await Http.PutAsJsonAsync($"{ApiRoutes.Users}/{_editUser.Id}", req);
+        }
+
+        _modalLoading = false;
+        if (r.IsSuccessStatusCode)
+        {
+            _showUserModal = false;
+            _message = _editUser is null ? "User created." : "User updated.";
+            _messageIsError = false;
+            await LoadAsync();
+        }
+        else
+        {
+            _modalError = $"Error: {await r.Content.ReadAsStringAsync()}";
+        }
+    }
+
+    private static string RoleBadgeClass(string role) => role switch
+    {
+        "SuperAdmin"  => "bg-danger",
+        "FamilyAdmin" => "bg-warning text-dark",
+        "GroupAdmin"  => "bg-info text-dark",
+        _             => "bg-secondary"
+    };
+}

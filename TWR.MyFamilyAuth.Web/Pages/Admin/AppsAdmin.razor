@@ -1,0 +1,204 @@
+@page "/admin/apps"
+@attribute [Authorize(Roles = "SuperAdmin,FamilyAdmin")]
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Apps — Admin</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-grid-3x3-gap me-2 text-primary"></i>Registered Apps</h4>
+    <button class="btn btn-success btn-sm" @onclick="OpenCreateModal">
+        <i class="bi bi-plus-circle me-1"></i>Register New App
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert @(_messageIsError ? "alert-danger" : "alert-success") py-2 mb-3">@_message</div>
+}
+
+@if (_newSecret is not null)
+{
+    <div class="card border-warning mb-4">
+        <div class="card-body">
+            <h6 class="text-warning fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Save this secret — it will not be shown again</h6>
+            <div class="mb-2">
+                <label class="form-label small fw-semibold">Client ID</label>
+                <div class="d-flex align-items-center gap-2">
+                    <code class="flex-grow-1 bg-light p-2 rounded d-block">@_newSecret.ClientId</code>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => CopyToClipboard(_newSecret.ClientId)'>
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small fw-semibold">Client Secret</label>
+                <div class="d-flex align-items-center gap-2">
+                    <code class="flex-grow-1 bg-light p-2 rounded d-block">@_newSecret.ClientSecret</code>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick='() => CopyToClipboard(_newSecret.ClientSecret)'>
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-warning mt-1" @onclick="() => _newSecret = null">Dismiss</button>
+        </div>
+    </div>
+}
+
+@if (_apps is null)
+{
+    <div class="spinner-border spinner-border-sm"></div>
+}
+else
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Client ID</th>
+                <th>Status</th>
+                <th>2FA</th>
+                <th>Registered</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in _apps)
+            {
+                <tr>
+                    <td>@a.Name</td>
+                    <td><code>@a.ClientId</code></td>
+                    <td>
+                        @if (a.IsActive)
+                        { <span class="badge bg-success">Active</span> }
+                        else
+                        { <span class="badge bg-danger">Inactive</span> }
+                    </td>
+                    <td>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" checked="@a.Requires2FA"
+                                   @onchange="() => Toggle2Fa(a)" />
+                        </div>
+                    </td>
+                    <td>@a.RegisteredAt.ToLocalTime().ToString("MM/dd/yyyy")</td>
+                    <td>
+                        @if (a.IsActive)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeactivateApp(a.Id)">Deactivate</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_showCreateModal)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Register New App</h5>
+                    <button class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div class="alert alert-danger py-2">@_modalError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">App Name</label>
+                        <input class="form-control" @bind="_createName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Allowed Origins</label>
+                        <textarea class="form-control" rows="3" @bind="_createOrigins"
+                                  placeholder="https://myapp.example.com"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                    <button class="btn btn-primary" @onclick="CreateApp" disabled="@_modalLoading">
+                        @if (_modalLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Register
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<RegisteredAppDto>? _apps;
+    private CreateAppResponse?      _newSecret;
+    private bool    _showCreateModal;
+    private bool    _modalLoading;
+    private string  _modalError    = string.Empty;
+    private string  _createName    = string.Empty;
+    private string  _createOrigins = string.Empty;
+    private string  _message       = string.Empty;
+    private bool    _messageIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _apps = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
+    }
+
+    private void OpenCreateModal()
+    {
+        _createName    = string.Empty;
+        _createOrigins = string.Empty;
+        _modalError    = string.Empty;
+        _showCreateModal = true;
+    }
+
+    private void CloseModal() => _showCreateModal = false;
+
+    private async Task CreateApp()
+    {
+        _modalError   = string.Empty;
+        _modalLoading = true;
+        var req = new CreateAppRequest(_createName, _createOrigins);
+        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.Admin}/apps", req);
+        _modalLoading = false;
+        if (r.IsSuccessStatusCode)
+        {
+            _newSecret       = await r.Content.ReadFromJsonAsync<CreateAppResponse>();
+            _showCreateModal = false;
+            _message         = "App registered successfully.";
+            _messageIsError  = false;
+            await LoadAsync();
+        }
+        else
+        {
+            _modalError = $"Error: {await r.Content.ReadAsStringAsync()}";
+        }
+    }
+
+    private async Task DeactivateApp(Guid id)
+    {
+        var r = await Http.DeleteAsync($"{ApiRoutes.Admin}/apps/{id}");
+        if (r.IsSuccessStatusCode)
+        {
+            _message = "App deactivated."; _messageIsError = false;
+            await LoadAsync();
+        }
+        else { _message = "Failed to deactivate app."; _messageIsError = true; }
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+    }
+
+    private async Task Toggle2Fa(RegisteredAppDto app)
+    {
+        var r = await Http.PatchAsJsonAsync($"{ApiRoutes.Admin}/apps/{app.Id}/require-2fa",
+            new { requires2FA = !app.Requires2FA });
+        if (r.IsSuccessStatusCode)
+            _apps = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
+    }
+}

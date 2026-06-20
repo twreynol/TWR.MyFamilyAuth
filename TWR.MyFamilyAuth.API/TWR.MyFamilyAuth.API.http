@@ -1,0 +1,6 @@
+@TWR.MyFamilyAuth.API_HostAddress = http://localhost:5252
+
+GET {{TWR.MyFamilyAuth.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
