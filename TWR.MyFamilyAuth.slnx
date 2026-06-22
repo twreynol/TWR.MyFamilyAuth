@@ -1,4 +1,12 @@
 <Solution>
+  <Folder Name="/misc/">
+    <File Path="docker-compose.yml" />
+    <File Path="Dockerfile.api" />
+    <File Path="Dockerfile.web" />
+    <File Path="fly.api.toml" />
+    <File Path="fly.web.toml" />
+    <File Path="nginx.conf" />
+  </Folder>
   <Folder Name="/specs/">
     <File Path="specs/MyFamilyAuth-Plan.md" />
     <File Path="specs/Plaid-Security-Implementation.md" />
