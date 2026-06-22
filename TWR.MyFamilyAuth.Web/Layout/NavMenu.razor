@@ -2,6 +2,8 @@
 @inject NavigationManager Navigation
 @using Microsoft.AspNetCore.Components.Authorization
 
+@implements IDisposable
+
 <nav class="navbar navbar-expand-md navbar-dark bg-dark px-3">
     <a class="navbar-brand fw-bold" href="/">
         <i class="bi bi-people-fill me-1"></i>MyFamilyAuth
@@ -57,6 +59,9 @@
                 </ul>
                 <div class="d-flex align-items-center gap-3 ms-auto">
                     <span class="navbar-text text-light small">@context.User.Identity?.Name</span>
+                    <a class="btn btn-outline-light btn-sm" href="@HelpUrl">
+                        <i class="bi bi-question-circle me-1"></i>Help
+                    </a>
                     <button class="btn btn-outline-light btn-sm" @onclick="SignOut">Sign Out</button>
                 </div>
             </Authorized>
@@ -65,6 +70,42 @@
 </nav>
 
 @code {
+    private static readonly Dictionary<string, string> _sectionMap = new()
+    {
+        { "",                  "" },
+        { "profile",           "my-profile" },
+        { "admin/users",       "admin--users" },
+        { "admin/groups",      "admin--groups" },
+        { "admin/apps",        "admin--apps" },
+        { "admin/app-access",  "admin--app-access" },
+    };
+
+    private string HelpUrl
+    {
+        get
+        {
+            var path = new Uri(Navigation.Uri).AbsolutePath.TrimStart('/').TrimEnd('/');
+            return _sectionMap.TryGetValue(path, out var section) && !string.IsNullOrEmpty(section)
+                ? $"/help/{section}"
+                : "/help";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
     private async Task SignOut()
     {
         await AuthService.LogoutAsync();
