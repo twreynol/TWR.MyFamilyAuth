@@ -91,8 +91,22 @@ else
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">App Role (optional)</label>
-                        <input class="form-control" @bind="_grantRole" placeholder="e.g. Owner, Viewer" />
+                        <label class="form-label">App Role</label>
+                        @if (_selectedAppRoles.Count > 0)
+                        {
+                            <select class="form-select" @bind="_grantRole">
+                                <option value="">— select role —</option>
+                                @foreach (var role in _selectedAppRoles)
+                                {
+                                    <option value="@role">@role</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input class="form-control" @bind="_grantRole" placeholder="e.g. User" />
+                            <div class="form-text text-muted">No roles configured for this app yet.</div>
+                        }
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -110,6 +124,7 @@ else
     private List<RegisteredAppDto>? _apps;
     private List<AppAccessDto>?     _access;
     private List<FamilyUserDto>?    _allUsers;
+    private List<string>            _selectedAppRoles = [];
     private Guid   _selectedAppId;
     private bool   _showGrant;
     private Guid   _grantUserId;
@@ -127,7 +142,9 @@ else
     private async Task LoadAccess(ChangeEventArgs e)
     {
         if (!Guid.TryParse(e.Value?.ToString(), out _selectedAppId)) return;
-        _access = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-app/{_selectedAppId}") ?? [];
+        _access           = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-app/{_selectedAppId}") ?? [];
+        _selectedAppRoles = _apps?.FirstOrDefault(a => a.Id == _selectedAppId)?.SupportedRoles ?? [];
+        _grantRole        = string.Empty;
     }
 
     private async Task GrantAccess()

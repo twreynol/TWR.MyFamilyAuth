@@ -109,15 +109,16 @@ public partial class DataAccess
         catch (Exception ex) { _logger.LogError(ex, "Error deactivating app {Id}", id); throw; }
     }
 
-    public async Task<RegisteredApp?> UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null)
+    public async Task<RegisteredApp?> UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null, string? supportedRoles = null)
     {
         using var db = CreateContext();
         try
         {
             var app = await db.RegisteredApps.FindAsync(id);
             if (app is null) return null;
-            if (isActive.HasValue)    app.IsActive    = isActive.Value;
-            if (requires2Fa.HasValue) app.Requires2FA = requires2Fa.Value;
+            if (isActive.HasValue)          app.IsActive       = isActive.Value;
+            if (requires2Fa.HasValue)       app.Requires2FA    = requires2Fa.Value;
+            if (supportedRoles is not null) app.SupportedRoles = supportedRoles;
             app.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return app;

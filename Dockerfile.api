@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY TWR.MyFamilyAuth.Contracts/TWR.MyFamilyAuth.Contracts.csproj TWR.MyFamilyAuth.Contracts/
+COPY TWR.MyFamilyAuth.DAL/TWR.MyFamilyAuth.DAL.csproj             TWR.MyFamilyAuth.DAL/
+COPY TWR.MyFamilyAuth.API/TWR.MyFamilyAuth.API.csproj             TWR.MyFamilyAuth.API/
+RUN dotnet restore TWR.MyFamilyAuth.API/TWR.MyFamilyAuth.API.csproj
+
+COPY TWR.MyFamilyAuth.Contracts/ TWR.MyFamilyAuth.Contracts/
+COPY TWR.MyFamilyAuth.DAL/       TWR.MyFamilyAuth.DAL/
+COPY TWR.MyFamilyAuth.API/       TWR.MyFamilyAuth.API/
+
+RUN dotnet publish TWR.MyFamilyAuth.API/TWR.MyFamilyAuth.API.csproj \
+    -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "TWR.MyFamilyAuth.API.dll"]

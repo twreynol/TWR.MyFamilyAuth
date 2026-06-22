@@ -60,15 +60,17 @@ public class Program
                     ClientId         = "myfamilyauth",
                     ClientSecretHash = string.Empty,
                     AllowedOrigins   = "[\"https://localhost:7288\",\"http://localhost:5288\"]",
+                    SupportedRoles   = "[\"SuperAdmin\",\"FamilyAdmin\",\"User\"]",
                     IsActive         = true
                 });
                 Log.Information("Registered MyFamilyAuth app (ClientId: myfamilyauth)");
             }
 
             // Grant SuperAdmin access to MyFamilyAuth app
+            TWR.MyFamilyAuth.DAL.Entities.FamilyUser? superAdmin = null;
             if (!string.IsNullOrEmpty(adminEmail))
             {
-                var superAdmin = await data.GetUserByEmailAsync(adminEmail);
+                superAdmin = await data.GetUserByEmailAsync(adminEmail);
                 if (superAdmin is not null)
                 {
                     await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
@@ -79,6 +81,40 @@ public class Program
                         GrantedByUserId = superAdmin.Id
                     });
                     Log.Information("Granted SuperAdmin access to MyFamilyAuth for {Email}", adminEmail);
+                }
+            }
+
+            // Register MyFinances as an app with 2FA required
+            var finApp = await data.GetRegisteredAppByClientIdAsync("myfinances");
+            if (finApp is null)
+            {
+                finApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "MyFinances",
+                    ClientId         = "myfinances",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"https://localhost:7237\",\"http://localhost:5197\"]",
+                    SupportedRoles   = "[\"Owner\",\"Viewer\"]",
+                    IsActive         = true,
+                    Requires2FA      = true
+                });
+                Log.Information("Registered MyFinances app (ClientId: myfinances, 2FA: required)");
+            }
+
+            // Grant SuperAdmin access to MyFinances
+            if (superAdmin is not null)
+            {
+                var existingAccess = await data.GetAppAccessAsync(superAdmin.Id, finApp.Id);
+                if (existingAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = finApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to MyFinances for {Email}", adminEmail);
                 }
             }
 

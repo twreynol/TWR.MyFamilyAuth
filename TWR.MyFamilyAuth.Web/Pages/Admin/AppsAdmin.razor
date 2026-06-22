@@ -51,13 +51,14 @@
 }
 else
 {
-    <table class="table table-sm table-hover">
+    <table class="table table-sm table-hover align-middle">
         <thead>
             <tr>
                 <th>Name</th>
                 <th>Client ID</th>
                 <th>Status</th>
                 <th>2FA</th>
+                <th>Roles</th>
                 <th>Registered</th>
                 <th></th>
             </tr>
@@ -79,6 +80,23 @@ else
                             <input class="form-check-input" type="checkbox" checked="@a.Requires2FA"
                                    @onchange="() => Toggle2Fa(a)" />
                         </div>
+                    </td>
+                    <td>
+                        @if (a.SupportedRoles.Count > 0)
+                        {
+                            @foreach (var role in a.SupportedRoles)
+                            {
+                                <span class="badge bg-secondary me-1">@role</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted small">none</span>
+                        }
+                        <button class="btn btn-link btn-sm p-0 ms-1" title="Edit roles"
+                                @onclick="() => OpenEditRolesModal(a)">
+                            <i class="bi bi-pencil-square small"></i>
+                        </button>
                     </td>
                     <td>@a.RegisteredAt.ToLocalTime().ToString("MM/dd/yyyy")</td>
                     <td>
@@ -113,8 +131,14 @@ else
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Allowed Origins</label>
-                        <textarea class="form-control" rows="3" @bind="_createOrigins"
+                        <textarea class="form-control" rows="2" @bind="_createOrigins"
                                   placeholder="https://myapp.example.com"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Supported Roles</label>
+                        <input class="form-control" @bind="_createRoles"
+                               placeholder="Owner, Viewer, User  (comma-separated)" />
+                        <div class="form-text">These become the role options when granting user access.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -129,29 +153,58 @@ else
     </div>
 }
 
+@if (_showEditRolesModal && _editRolesApp is not null)
+{
+    <div class="modal d-block" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Roles — @_editRolesApp.Name</h5>
+                    <button class="btn-close" @onclick="() => _showEditRolesModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Supported Roles</label>
+                    <input class="form-control" @bind="_editRolesValue"
+                           placeholder="Owner, Viewer, User  (comma-separated)" />
+                    <div class="form-text">Changing roles here does not affect existing access grants — only future ones.</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => _showEditRolesModal = false">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveRoles">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<RegisteredAppDto>? _apps;
     private CreateAppResponse?      _newSecret;
+
+    // Create modal
     private bool    _showCreateModal;
     private bool    _modalLoading;
     private string  _modalError    = string.Empty;
     private string  _createName    = string.Empty;
     private string  _createOrigins = string.Empty;
-    private string  _message       = string.Empty;
-    private bool    _messageIsError;
+    private string  _createRoles   = string.Empty;
+
+    // Edit roles modal
+    private bool              _showEditRolesModal;
+    private RegisteredAppDto? _editRolesApp;
+    private string            _editRolesValue = string.Empty;
+
+    private string _message       = string.Empty;
+    private bool   _messageIsError;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
-    {
-        _apps = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
-    }
+        => _apps = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
 
     private void OpenCreateModal()
     {
-        _createName    = string.Empty;
-        _createOrigins = string.Empty;
-        _modalError    = string.Empty;
+        _createName = _createOrigins = _createRoles = _modalError = string.Empty;
         _showCreateModal = true;
     }
 
@@ -159,10 +212,11 @@ else
 
     private async Task CreateApp()
     {
-        _modalError   = string.Empty;
+        _modalError = string.Empty;
         _modalLoading = true;
-        var req = new CreateAppRequest(_createName, _createOrigins);
-        var r   = await Http.PostAsJsonAsync($"{ApiRoutes.Admin}/apps", req);
+        var roles = ParseRoles(_createRoles);
+        var req   = new CreateAppRequest(_createName, _createOrigins, roles);
+        var r     = await Http.PostAsJsonAsync($"{ApiRoutes.Admin}/apps", req);
         _modalLoading = false;
         if (r.IsSuccessStatusCode)
         {
@@ -178,27 +232,49 @@ else
         }
     }
 
+    private void OpenEditRolesModal(RegisteredAppDto app)
+    {
+        _editRolesApp   = app;
+        _editRolesValue = string.Join(", ", app.SupportedRoles);
+        _showEditRolesModal = true;
+    }
+
+    private async Task SaveRoles()
+    {
+        if (_editRolesApp is null) return;
+        var roles = ParseRoles(_editRolesValue);
+        var r     = await Http.PatchAsJsonAsync($"{ApiRoutes.Admin}/apps/{_editRolesApp.Id}/supported-roles",
+            new UpdateAppRolesRequest(roles));
+        if (r.IsSuccessStatusCode)
+        {
+            _showEditRolesModal = false;
+            _message            = "Roles updated.";
+            _messageIsError     = false;
+            await LoadAsync();
+        }
+        else { _message = "Failed to update roles."; _messageIsError = true; }
+    }
+
     private async Task DeactivateApp(Guid id)
     {
         var r = await Http.DeleteAsync($"{ApiRoutes.Admin}/apps/{id}");
-        if (r.IsSuccessStatusCode)
-        {
-            _message = "App deactivated."; _messageIsError = false;
-            await LoadAsync();
-        }
-        else { _message = "Failed to deactivate app."; _messageIsError = true; }
+        if (r.IsSuccessStatusCode) { _message = "App deactivated."; _messageIsError = false; await LoadAsync(); }
+        else { _message = "Failed to deactivate."; _messageIsError = true; }
     }
 
     private async Task CopyToClipboard(string text)
-    {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
-    }
+        => await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
 
     private async Task Toggle2Fa(RegisteredAppDto app)
     {
         var r = await Http.PatchAsJsonAsync($"{ApiRoutes.Admin}/apps/{app.Id}/require-2fa",
             new { requires2FA = !app.Requires2FA });
-        if (r.IsSuccessStatusCode)
-            _apps = await Http.GetFromJsonAsync<List<RegisteredAppDto>>($"{ApiRoutes.Admin}/apps") ?? [];
+        if (r.IsSuccessStatusCode) await LoadAsync();
     }
+
+    private static List<string> ParseRoles(string raw)
+        => raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+              .Where(r => !string.IsNullOrEmpty(r))
+              .Distinct()
+              .ToList();
 }

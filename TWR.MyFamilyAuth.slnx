@@ -1,4 +1,16 @@
 <Solution>
+  <Folder Name="/misc/">
+    <File Path="docker-compose.yml" />
+    <File Path="Dockerfile.api" />
+    <File Path="Dockerfile.web" />
+    <File Path="fly.api.toml" />
+    <File Path="fly.web.toml" />
+    <File Path="nginx.conf" />
+  </Folder>
+  <Folder Name="/specs/">
+    <File Path="specs/MyFamilyAuth-Plan.md" />
+    <File Path="specs/Plaid-Security-Implementation.md" />
+  </Folder>
   <Project Path="TWR.MyFamilyAuth.API/TWR.MyFamilyAuth.API.csproj" />
   <Project Path="TWR.MyFamilyAuth.Contracts/TWR.MyFamilyAuth.Contracts.csproj" />
   <Project Path="TWR.MyFamilyAuth.DAL/TWR.MyFamilyAuth.DAL.csproj" />

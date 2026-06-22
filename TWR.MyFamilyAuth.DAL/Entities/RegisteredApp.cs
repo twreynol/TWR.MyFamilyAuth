@@ -9,6 +9,7 @@ public class RegisteredApp
     public string   AllowedOrigins   { get; set; } = "[]";
     public bool     IsActive         { get; set; } = true;
     public bool     Requires2FA      { get; set; }
+    public string   SupportedRoles   { get; set; } = "[]"; // JSON array e.g. ["Owner","Viewer"]
     public DateTime RegisteredAt     { get; set; }
     public DateTime? UpdatedAt       { get; set; }
 }
