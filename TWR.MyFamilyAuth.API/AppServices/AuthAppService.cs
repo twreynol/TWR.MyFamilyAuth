@@ -29,9 +29,23 @@ public class AuthAppService : IAuthAppService
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request, string? ipAddress)
     {
-        var user = await _data.GetUserByEmailAsync(request.Email.Trim().ToLowerInvariant());
-        if (user is null || !user.IsActive || user.IsWard) return null;
-        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash)) return null;
+        var email = request.Email.Trim().ToLowerInvariant();
+        var user  = await _data.GetUserByEmailAsync(email);
+
+        if (user is null || !user.IsActive || user.IsWard)
+        {
+            _logger.LogWarning("Login failed: unknown or inactive account. Email={Email} App={App} IP={IP}",
+                email, request.AppClientId, ipAddress);
+            return null;
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            var hashSnippet = user.PasswordHash.Length > 8 ? user.PasswordHash[..8] + "…" : "?";
+            _logger.LogWarning("Login failed: wrong password. Email={Email} App={App} HashPrefix={Hash} IP={IP}",
+                email, request.AppClientId, hashSnippet, ipAddress);
+            return null;
+        }
 
         if (!string.IsNullOrEmpty(request.TimeZoneId) && user.TimeZoneId != request.TimeZoneId)
         {
@@ -41,10 +55,20 @@ public class AuthAppService : IAuthAppService
 
         // Verify app exists and user has access
         var app = await _data.GetRegisteredAppByClientIdAsync(request.AppClientId);
-        if (app is null) return null;
+        if (app is null)
+        {
+            _logger.LogWarning("Login failed: unknown app. Email={Email} App={App} IP={IP}",
+                email, request.AppClientId, ipAddress);
+            return null;
+        }
 
         var access = await _data.GetAppAccessAsync(user.Id, app.Id);
-        if (access is null) return null;  // no access grant — deny silently like wrong password
+        if (access is null)
+        {
+            _logger.LogWarning("Login failed: no app access grant. Email={Email} App={App} IP={IP}",
+                email, request.AppClientId, ipAddress);
+            return null;
+        }
 
         // 2FA check
         if (app.Requires2FA)
@@ -59,6 +83,8 @@ public class AuthAppService : IAuthAppService
                 {
                     deviceTrusted = true;
                     await _data.UpdateDeviceTrustLastUsedAsync(trust.Id);
+                    _logger.LogInformation("Login: trusted device recognized, skipping 2FA. Email={Email} App={App} IP={IP}",
+                        email, request.AppClientId, ipAddress);
                 }
             }
 
@@ -77,6 +103,8 @@ public class AuthAppService : IAuthAppService
                 });
 
                 await _email.SendTwoFactorCodeAsync(user.Email, user.FullName, otp, app.Name);
+                _logger.LogInformation("Login: 2FA challenge issued. Email={Email} App={App} IP={IP}",
+                    email, request.AppClientId, ipAddress);
                 await _data.WriteAuditLogAsync(new AuditLog
                 {
                     FamilyUserId = user.Id,
@@ -118,6 +146,8 @@ public class AuthAppService : IAuthAppService
 
         await _data.UpdateLastAccessedAsync(user.Id);
         await _data.WriteAuditLogAsync(new AuditLog { FamilyUserId = user.Id, Action = "Login", IpAddress = ipAddress, AppClientId = app.ClientId });
+        _logger.LogInformation("Login successful. Email={Email} App={App} IP={IP}",
+            email, app.ClientId, ipAddress);
 
         return new LoginResponse(token, refresh, DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
             user.Id, user.FullName, user.Email, user.Role, user.MustChangePassword);
