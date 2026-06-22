@@ -1,0 +1,142 @@
+@page "/help"
+@page "/help/{Section}"
+@attribute [Authorize]
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Help — MyFamilyAuth</PageTitle>
+
+<h4 class="mb-4"><i class="bi bi-question-circle me-2 text-primary"></i>Help</h4>
+
+@if (_html is null)
+{
+    <div class="spinner-border spinner-border-sm"></div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body help-content">
+            @((MarkupString)_html)
+        </div>
+    </div>
+}
+
+<style>
+    .help-content h1 { font-size: 1.6rem; margin-top: 1rem; }
+    .help-content h2 { font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid #dee2e6; padding-bottom: .4rem; }
+    .help-content h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #495057; }
+    .help-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    .help-content th, .help-content td { border: 1px solid #dee2e6; padding: .4rem .75rem; }
+    .help-content th { background: #f8f9fa; font-weight: 600; }
+    .help-content code { background: #f8f9fa; padding: .1rem .3rem; border-radius: 3px; }
+    .help-content hr { margin: 1.5rem 0; }
+    .help-content a { color: #0d6efd; }
+</style>
+
+@code {
+    [Parameter] public string? Section { get; set; }
+
+    private string? _html;
+
+    // Maps route patterns to markdown anchor IDs
+    private static readonly Dictionary<string, string> _sectionMap = new()
+    {
+        { "login",           "signing-in" },
+        { "forgot-password", "forgot-password" },
+        { "verify-two-factor", "two-factor-authentication" },
+        { "",                "dashboard" },
+        { "profile",         "my-profile" },
+        { "admin/users",     "admin--users" },
+        { "admin/groups",    "admin--groups" },
+        { "admin/apps",      "admin--apps" },
+        { "admin/app-access","admin--app-access" },
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var md = await Http.GetStringAsync("HELP.md");
+        _html  = RenderMarkdown(md);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var anchor = Section;
+
+        // If no explicit section, try to infer from the referring page via JS
+        if (string.IsNullOrEmpty(anchor))
+        {
+            var referrer = await JS.InvokeAsync<string>("eval", "document.referrer");
+            if (!string.IsNullOrEmpty(referrer))
+            {
+                var uri = new Uri(referrer);
+                var path = uri.AbsolutePath.TrimStart('/');
+                _sectionMap.TryGetValue(path, out anchor);
+            }
+        }
+
+        if (!string.IsNullOrEmpty(anchor))
+            await JS.InvokeVoidAsync("scrollToAnchor", anchor);
+    }
+
+    private static string RenderMarkdown(string md)
+    {
+        var sb = new System.Text.StringBuilder();
+        var lines = md.Split('\n');
+        bool inTable = false, inCode = false;
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd();
+
+            if (line.StartsWith("```")) { inCode = !inCode; continue; }
+            if (inCode) { sb.AppendLine($"<code>{Escape(line)}</code><br/>"); continue; }
+
+            if (line.StartsWith("# "))       { sb.AppendLine($"<h1 id=\"{Anchor(line[2..].Trim())}\">{Escape(line[2..].Trim())}</h1>"); continue; }
+            if (line.StartsWith("## "))      { sb.AppendLine($"<h2 id=\"{Anchor(line[3..].Trim())}\">{Escape(line[3..].Trim())}</h2>"); continue; }
+            if (line.StartsWith("### "))     { sb.AppendLine($"<h3 id=\"{Anchor(line[4..].Trim())}\">{Escape(line[4..].Trim())}</h3>"); continue; }
+            if (line == "---")               { sb.AppendLine("<hr/>"); continue; }
+
+            if (line.StartsWith("|"))
+            {
+                if (!inTable) { sb.AppendLine("<table>"); inTable = true; }
+                if (line.Replace("|", "").Replace("-", "").Replace(":", "").Replace(" ", "").Length == 0) continue;
+                var cells = line.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                var tag   = sb.ToString().EndsWith("</thead>\n") ? "td" : "td";
+                var isHeader = !sb.ToString().Contains("<tbody>");
+                if (isHeader) { sb.AppendLine("<thead><tr>"); tag = "th"; }
+                else          { sb.AppendLine("<tr>"); }
+                foreach (var c in cells) sb.AppendLine($"<{tag}>{InlineFormat(c.Trim())}</{tag}>");
+                sb.AppendLine(isHeader ? "</tr></thead><tbody>" : "</tr>");
+                continue;
+            }
+            if (inTable) { sb.AppendLine("</tbody></table>"); inTable = false; }
+
+            if (line.StartsWith("- "))       { sb.AppendLine($"<li>{InlineFormat(line[2..])}</li>"); continue; }
+            if (string.IsNullOrWhiteSpace(line)) { sb.AppendLine("<br/>"); continue; }
+
+            sb.AppendLine($"<p>{InlineFormat(line)}</p>");
+        }
+
+        if (inTable) sb.AppendLine("</tbody></table>");
+        return sb.ToString();
+    }
+
+    private static string Anchor(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text.ToLower(), @"[^a-z0-9\s-]", "")
+              .Replace(" ", "-").Trim('-');
+
+    private static string Escape(string s) =>
+        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    private static string InlineFormat(string s)
+    {
+        s = Escape(s);
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"`(.+?)`", "<code>$1</code>");
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\[(.+?)\]\(#(.+?)\)", "<a href=\"#$2\">$1</a>");
+        return s;
+    }
+}
