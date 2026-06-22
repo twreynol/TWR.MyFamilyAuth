@@ -1,142 +1,181 @@
 @page "/help"
 @page "/help/{Section}"
 @attribute [Authorize]
-@inject HttpClient Http
 @inject IJSRuntime JS
-@inject NavigationManager Navigation
 
 <PageTitle>Help — MyFamilyAuth</PageTitle>
 
-<h4 class="mb-4"><i class="bi bi-question-circle me-2 text-primary"></i>Help</h4>
-
-@if (_html is null)
-{
-    <div class="spinner-border spinner-border-sm"></div>
-}
-else
-{
-    <div class="card shadow-sm">
-        <div class="card-body help-content">
-            @((MarkupString)_html)
-        </div>
-    </div>
-}
-
 <style>
-    .help-content h1 { font-size: 1.6rem; margin-top: 1rem; }
     .help-content h2 { font-size: 1.25rem; margin-top: 2rem; border-bottom: 1px solid #dee2e6; padding-bottom: .4rem; }
     .help-content h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #495057; }
-    .help-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    .help-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
     .help-content th, .help-content td { border: 1px solid #dee2e6; padding: .4rem .75rem; }
     .help-content th { background: #f8f9fa; font-weight: 600; }
-    .help-content code { background: #f8f9fa; padding: .1rem .3rem; border-radius: 3px; }
+    .help-content td:not(:first-child) { text-align: center; }
     .help-content hr { margin: 1.5rem 0; }
-    .help-content a { color: #0d6efd; }
+    .help-content .toc a { display: block; color: #0d6efd; text-decoration: none; line-height: 2; }
+    .help-content .toc a:hover { text-decoration: underline; }
+    .help-content .toc-sub { padding-left: 1.25rem; }
 </style>
+
+<div class="card shadow-sm">
+    <div class="card-body help-content px-4 py-4">
+
+        <h4 class="mb-1"><i class="bi bi-question-circle me-2 text-primary"></i>MyFamilyAuth Help</h4>
+        <p class="text-muted mb-4">MyFamilyAuth is the central identity hub for all TWR MyApps. It handles sign-in, user accounts, family groups, and controls which users have access to which apps.</p>
+
+        <div class="toc mb-4 p-3 bg-light rounded">
+            <strong>Contents</strong>
+            <a href="#signing-in">Signing In</a>
+            <a href="#forgot-password">Forgot Password</a>
+            <a href="#two-factor">Two-Factor Authentication</a>
+            <a href="#dashboard">Dashboard</a>
+            <a href="#my-profile">My Profile</a>
+            <div class="toc-sub">
+                <a href="#profile-info">Profile Info</a>
+                <a href="#change-password">Change Password</a>
+                <a href="#app-access-section">App Access</a>
+                <a href="#trusted-devices">Trusted Devices</a>
+            </div>
+            <a href="#admin-users">Admin — Users</a>
+            <a href="#admin-groups">Admin — Groups</a>
+            <a href="#admin-apps">Admin — Apps</a>
+            <a href="#admin-app-access">Admin — App Access</a>
+            <a href="#roles">Roles &amp; Permissions</a>
+        </div>
+
+        <hr />
+
+        <h2 id="signing-in">Signing In</h2>
+        <p>Navigate to the login page and enter your email address and password, then click <strong>Sign In</strong>.</p>
+        <ul>
+            <li>If your account requires two-factor authentication, you will be redirected to enter a verification code.</li>
+            <li>Click <strong>Forgot password?</strong> if you need to reset your password.</li>
+            <li>Click <strong>Sign Out</strong> in the top navigation bar to end your session.</li>
+        </ul>
+
+        <hr />
+
+        <h2 id="forgot-password">Forgot Password</h2>
+        <p>On the login page, click <strong>Forgot password?</strong>. Enter your email address and click <strong>Send Reset Link</strong>. You will receive an email with a link to reset your password. The link expires after a short time for security.</p>
+
+        <hr />
+
+        <h2 id="two-factor">Two-Factor Authentication</h2>
+        <p>If your account or an app requires 2FA, you will be prompted to enter a one-time code after your password is accepted. Check your email or authenticator app for the code. You may choose to trust the current device to skip this step on future logins from the same browser.</p>
+
+        <hr />
+
+        <h2 id="dashboard">Dashboard</h2>
+        <p>The Dashboard is the landing page after you sign in. It confirms you are logged in and provides a starting point for navigating the app.</p>
+
+        <hr />
+
+        <h2 id="my-profile">My Profile</h2>
+        <p>The Profile page lets you manage your personal account information, security settings, and see what apps you have access to. Click <strong>Profile</strong> in the navigation bar to open it.</p>
+
+        <h3 id="profile-info">Profile Info</h3>
+        <p>Update your <strong>First Name</strong>, <strong>Last Name</strong>, <strong>Email</strong>, and <strong>Timezone</strong>. You can also upload an <strong>Avatar</strong> (profile picture). Click <strong>Save Changes</strong> to apply.</p>
+
+        <h3 id="change-password">Change Password</h3>
+        <p>Enter your <strong>Current Password</strong>, then your <strong>New Password</strong> (minimum 8 characters) and confirm it. Click <strong>Update Password</strong>.</p>
+
+        <h3 id="app-access-section">App Access</h3>
+        <p>A read-only list of the apps you have been granted access to and your role in each. Contact an administrator if you need access to an app not listed here.</p>
+
+        <h3 id="trusted-devices">Trusted Devices</h3>
+        <p>When you complete two-factor authentication and choose to trust your device, it is recorded here. Each entry shows the app, IP address, and expiration date.</p>
+        <ul>
+            <li>Click <strong>Revoke</strong> next to a device to force 2FA on that device on the next login.</li>
+            <li>Click <strong>Revoke All</strong> to remove all trusted devices at once.</li>
+        </ul>
+
+        <hr />
+
+        <h2 id="admin-users">Admin — Users</h2>
+        <p><em>Requires SuperAdmin or FamilyAdmin role.</em></p>
+        <p>Manage all user accounts in the system.</p>
+        <ul>
+            <li><strong>Search</strong> users by name or email using the search box.</li>
+            <li>Click <strong>New User</strong> to create a new account — supply name, email, role, and initial password.</li>
+            <li>Click <strong>Edit</strong> to update a user's name, email, role, group, or password options.</li>
+            <li>Click <strong>Deactivate</strong> to disable an account. Deactivated users cannot sign in. SuperAdmin accounts cannot be deactivated.</li>
+            <li>Use <strong>Previous / Next</strong> to page through large user lists.</li>
+        </ul>
+
+        <hr />
+
+        <h2 id="admin-groups">Admin — Groups</h2>
+        <p><em>Requires SuperAdmin or FamilyAdmin role.</em></p>
+        <p>Groups organize users into families or teams and can be nested (a group can have a parent group).</p>
+        <ul>
+            <li>Click <strong>New Group</strong> to create a group and optionally assign a parent group.</li>
+            <li>Click <strong>Edit</strong> to rename a group or change its parent.</li>
+            <li>Click the <strong>chevron arrow</strong> (›) on a group row to expand it and see its members.</li>
+            <li>Click <strong>Add Member</strong> to add an existing user. Assign a role (Member, Admin, or Owner) and optionally mark as <strong>Limited Member</strong>.</li>
+            <li>Click <strong>Remove</strong> next to a member to remove them from the group.</li>
+        </ul>
+
+        <hr />
+
+        <h2 id="admin-apps">Admin — Apps</h2>
+        <p><em>Requires SuperAdmin or FamilyAdmin role.</em></p>
+        <p>Registered Apps are the other TWR MyApps (MyFinances, MyMedical, etc.) that use MyFamilyAuth for sign-in.</p>
+        <ul>
+            <li>Click <strong>Register New App</strong> to add a new application. You will receive a <strong>Client ID</strong> and <strong>Client Secret</strong> — save the secret immediately, it is only shown once.</li>
+            <li>Click <strong>Edit</strong> to update an app's name, settings, or supported roles.</li>
+            <li>Click <strong>Regenerate Secret</strong> to issue a new client secret. The old secret stops working immediately.</li>
+        </ul>
+
+        <hr />
+
+        <h2 id="admin-app-access">Admin — App Access</h2>
+        <p><em>Requires SuperAdmin or FamilyAdmin role.</em></p>
+        <p>Controls which users can sign into which apps and what role they hold within each app.</p>
+        <ol>
+            <li>Select an <strong>App</strong> from the dropdown to load its current access list.</li>
+            <li>The table shows each user who has been granted access and their role.</li>
+            <li>Click <strong>Grant Access</strong> to add a user — select the user and their role, then save.</li>
+            <li>Click <strong>Remove</strong> to revoke a user's access. Changes take effect immediately.</li>
+        </ol>
+
+        <hr />
+
+        <h2 id="roles">Roles &amp; Permissions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>User</th>
+                    <th>GroupAdmin</th>
+                    <th>FamilyAdmin</th>
+                    <th>SuperAdmin</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Sign in &amp; use apps</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Edit own profile</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Manage trusted devices</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Manage group members</td><td></td><td>✓</td><td>✓</td><td>✓</td></tr>
+                <tr><td>Manage all users</td><td></td><td></td><td>✓</td><td>✓</td></tr>
+                <tr><td>Manage all groups</td><td></td><td></td><td>✓</td><td>✓</td></tr>
+                <tr><td>Register apps</td><td></td><td></td><td>✓</td><td>✓</td></tr>
+                <tr><td>Control app access</td><td></td><td></td><td>✓</td><td>✓</td></tr>
+                <tr><td>Full system access</td><td></td><td></td><td></td><td>✓</td></tr>
+            </tbody>
+        </table>
+
+    </div>
+</div>
 
 @code {
     [Parameter] public string? Section { get; set; }
 
-    private string? _html;
-
-    // Maps route patterns to markdown anchor IDs
-    private static readonly Dictionary<string, string> _sectionMap = new()
-    {
-        { "login",           "signing-in" },
-        { "forgot-password", "forgot-password" },
-        { "verify-two-factor", "two-factor-authentication" },
-        { "",                "dashboard" },
-        { "profile",         "my-profile" },
-        { "admin/users",     "admin--users" },
-        { "admin/groups",    "admin--groups" },
-        { "admin/apps",      "admin--apps" },
-        { "admin/app-access","admin--app-access" },
-    };
-
-    protected override async Task OnInitializedAsync()
-    {
-        var md = await Http.GetStringAsync("HELP.md");
-        _html  = RenderMarkdown(md);
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-
         var anchor = Section;
-
-        // If no explicit section, try to infer from the referring page via JS
-        if (string.IsNullOrEmpty(anchor))
-        {
-            var referrer = await JS.InvokeAsync<string>("eval", "document.referrer");
-            if (!string.IsNullOrEmpty(referrer))
-            {
-                var uri = new Uri(referrer);
-                var path = uri.AbsolutePath.TrimStart('/');
-                _sectionMap.TryGetValue(path, out anchor);
-            }
-        }
-
         if (!string.IsNullOrEmpty(anchor))
             await JS.InvokeVoidAsync("scrollToAnchor", anchor);
-    }
-
-    private static string RenderMarkdown(string md)
-    {
-        var sb = new System.Text.StringBuilder();
-        var lines = md.Split('\n');
-        bool inTable = false, inCode = false;
-
-        foreach (var rawLine in lines)
-        {
-            var line = rawLine.TrimEnd();
-
-            if (line.StartsWith("```")) { inCode = !inCode; continue; }
-            if (inCode) { sb.AppendLine($"<code>{Escape(line)}</code><br/>"); continue; }
-
-            if (line.StartsWith("# "))       { sb.AppendLine($"<h1 id=\"{Anchor(line[2..].Trim())}\">{Escape(line[2..].Trim())}</h1>"); continue; }
-            if (line.StartsWith("## "))      { sb.AppendLine($"<h2 id=\"{Anchor(line[3..].Trim())}\">{Escape(line[3..].Trim())}</h2>"); continue; }
-            if (line.StartsWith("### "))     { sb.AppendLine($"<h3 id=\"{Anchor(line[4..].Trim())}\">{Escape(line[4..].Trim())}</h3>"); continue; }
-            if (line == "---")               { sb.AppendLine("<hr/>"); continue; }
-
-            if (line.StartsWith("|"))
-            {
-                if (!inTable) { sb.AppendLine("<table>"); inTable = true; }
-                if (line.Replace("|", "").Replace("-", "").Replace(":", "").Replace(" ", "").Length == 0) continue;
-                var cells = line.Split('|', StringSplitOptions.RemoveEmptyEntries);
-                var tag   = sb.ToString().EndsWith("</thead>\n") ? "td" : "td";
-                var isHeader = !sb.ToString().Contains("<tbody>");
-                if (isHeader) { sb.AppendLine("<thead><tr>"); tag = "th"; }
-                else          { sb.AppendLine("<tr>"); }
-                foreach (var c in cells) sb.AppendLine($"<{tag}>{InlineFormat(c.Trim())}</{tag}>");
-                sb.AppendLine(isHeader ? "</tr></thead><tbody>" : "</tr>");
-                continue;
-            }
-            if (inTable) { sb.AppendLine("</tbody></table>"); inTable = false; }
-
-            if (line.StartsWith("- "))       { sb.AppendLine($"<li>{InlineFormat(line[2..])}</li>"); continue; }
-            if (string.IsNullOrWhiteSpace(line)) { sb.AppendLine("<br/>"); continue; }
-
-            sb.AppendLine($"<p>{InlineFormat(line)}</p>");
-        }
-
-        if (inTable) sb.AppendLine("</tbody></table>");
-        return sb.ToString();
-    }
-
-    private static string Anchor(string text) =>
-        System.Text.RegularExpressions.Regex.Replace(text.ToLower(), @"[^a-z0-9\s-]", "")
-              .Replace(" ", "-").Trim('-');
-
-    private static string Escape(string s) =>
-        s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
-
-    private static string InlineFormat(string s)
-    {
-        s = Escape(s);
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"`(.+?)`", "<code>$1</code>");
-        s = System.Text.RegularExpressions.Regex.Replace(s, @"\[(.+?)\]\(#(.+?)\)", "<a href=\"#$2\">$1</a>");
-        return s;
     }
 }
