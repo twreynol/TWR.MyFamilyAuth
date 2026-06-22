@@ -23,5 +23,5 @@ public partial interface IDataAccess
     Task<List<RegisteredApp>> GetAllRegisteredAppsAsync();
     Task<RegisteredApp>       CreateRegisteredAppAsync(RegisteredApp app);
     Task<bool>                DeactivateRegisteredAppAsync(Guid id);
-    Task<RegisteredApp?>      UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null);
+    Task<RegisteredApp?>      UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null, string? supportedRoles = null);
 }

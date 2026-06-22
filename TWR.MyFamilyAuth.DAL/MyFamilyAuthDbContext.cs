@@ -93,6 +93,7 @@ public class MyFamilyAuthDbContext : DbContext
             e.Property(x => x.Name).IsRequired().HasMaxLength(100);
             e.Property(x => x.ClientId).IsRequired().HasMaxLength(100);
             e.Property(x => x.ClientSecretHash).IsRequired().HasMaxLength(200);
+            e.Property(x => x.SupportedRoles).HasMaxLength(500);
             e.HasIndex(x => x.ClientId).IsUnique();
         });
 

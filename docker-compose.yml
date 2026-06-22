@@ -1,0 +1,61 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: PostGres=4845
+      POSTGRES_DB: my-family-auth
+    volumes:
+      - myfamilyauth-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  myfamilyauth-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "7287:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__PostgreSQL: "Host=postgres;Database=my-family-auth;Username=postgres;Password=PostGres=4845"
+      JwtSettings__Secret: "myfamilyauth-dev-secret-key-at-least-32-characters-long"
+      JwtSettings__Issuer: "TWR.MyFamilyAuth"
+      JwtSettings__Audience: "twr-apps"
+      JwtSettings__ExpiryMinutes: "60"
+      JwtSettings__RefreshTokenExpiryDays: "30"
+      EmailSettings__SmtpServer: "smtp.gmail.com"
+      EmailSettings__SmtpPort: "587"
+      EmailSettings__SmtpUser: "mymedical32@gmail.com"
+      EmailSettings__SmtpPassword: "${SMTP_PASSWORD}"
+      EmailSettings__FromAddress: "noreply@twr-myfamilyauth.com"
+      EmailSettings__FromName: "TWR MyApps"
+      Seed__SuperAdminEmail: "twreynol@hotmail.com"
+      Seed__SuperAdminFirstName: "Tim"
+      Seed__SuperAdminLastName: "Reynolds"
+      Seed__SuperAdminPassword: "MedJourney=4845"
+      Cors__AllowedOrigins__0: "http://localhost:7288"
+      Cors__AllowedOrigins__1: "https://localhost:7237"
+      Cors__AllowedOrigins__2: "http://localhost:5197"
+
+  myfamilyauth-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "7288:80"
+    depends_on:
+      - myfamilyauth-api
+
+volumes:
+  myfamilyauth-pgdata:

@@ -1,0 +1,51 @@
+@page "/privacy-policy"
+@inject HttpClient Http
+
+<PageTitle>Privacy Policy — MyFamilyAuth</PageTitle>
+
+<div class="container py-4" style="max-width:860px;">
+    @if (_loading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (_error)
+    {
+        <div class="alert alert-danger">Unable to load the Privacy Policy. Please try again later.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body privacy-policy-body">
+                @((MarkupString)(_html ?? string.Empty))
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string? _html;
+    private bool    _loading = true;
+    private bool    _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/legal/privacy-policy");
+            if (response.IsSuccessStatusCode)
+                _html = await response.Content.ReadAsStringAsync();
+            else
+                _error = true;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
