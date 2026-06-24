@@ -37,6 +37,7 @@
                 <a href="#app-access-section">App Access</a>
                 <a href="#trusted-devices">Trusted Devices</a>
             </div>
+            <a href="#onboarding">Onboarding a New User</a>
             <a href="#admin-users">Admin — Users</a>
             <a href="#admin-groups">Admin — Groups</a>
             <a href="#admin-apps">Admin — Apps</a>
@@ -89,6 +90,54 @@
             <li>Click <strong>Revoke</strong> next to a device to force 2FA on that device on the next login.</li>
             <li>Click <strong>Revoke All</strong> to remove all trusted devices at once.</li>
         </ul>
+
+        <hr />
+
+        <h2 id="onboarding">Onboarding a New User</h2>
+        <p>
+            To give a new person access to one or more TWR MyApps, four things must be in place:
+            a user account, a family group membership, a primary group assignment, and an app access grant.
+            All four steps are required — missing any one of them will prevent the user from signing in successfully.
+        </p>
+
+        <h3>Step 1 — Create the user account</h3>
+        <p>Go to <strong>Admin → Users</strong> and click <strong>New User</strong>. Fill in:</p>
+        <ul>
+            <li><strong>First Name / Last Name / Email</strong> — the user will log in with this email address.</li>
+            <li><strong>Role</strong> — use <em>User</em> for a regular family member.</li>
+            <li><strong>Initial Password</strong> — set a temporary password and check <strong>Must Change Password</strong> so they are prompted to create their own on first login.</li>
+        </ul>
+
+        <h3>Step 2 — Add the user to a family group</h3>
+        <p>Go to <strong>Admin → Groups</strong>. Find the appropriate family group, click its chevron (›) to expand it, then click <strong>Add Member</strong>. Select the new user and assign a group role (typically <em>Member</em>).</p>
+        <p>This records the membership but does <strong>not</strong> yet set the user's primary group — that is Step 3.</p>
+
+        <h3>Step 3 — Set the user's Primary Group <span class="badge bg-danger" style="font-size:.75rem;">Critical</span></h3>
+        <p>
+            Go to <strong>Admin → Users</strong>, find the new user, and click <strong>Edit</strong>.
+            Set the <strong>Primary Group</strong> field to the same family group from Step 2, then save.
+        </p>
+        <p>
+            This is the most commonly missed step. The primary group is embedded in every JWT token the user receives.
+            All TWR MyApps use this value to scope data to the correct family — without it the apps will load but return no data or show an error.
+            If a user can log in but sees empty pages, this is almost always the cause.
+        </p>
+        <p><em>Quick check:</em> paste the user's token at <a href="https://jwt.io" target="_blank">jwt.io</a> and look for a <code>family_group_id</code> claim. If it is missing, Primary Group is not set.</p>
+
+        <h3>Step 4 — Grant app access</h3>
+        <p>Go to <strong>Admin → App Access</strong>. Select the app the user needs from the dropdown, then click <strong>Grant Access</strong>. Choose the user and an app role if the app supports roles (leave blank if not).</p>
+        <p>Repeat this step for each additional app the user should be able to sign into. Access is per-app — being in the family group does not automatically grant access to any app.</p>
+
+        <h3>Summary checklist</h3>
+        <table>
+            <thead><tr><th>#</th><th>Where</th><th>What to do</th><th>Why it matters</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td>Admin → Users → New User</td><td>Create account with email &amp; password</td><td>Allows the person to log in at all</td></tr>
+                <tr><td>2</td><td>Admin → Groups → Add Member</td><td>Add to family group</td><td>Makes them part of the family data scope</td></tr>
+                <tr><td>3</td><td>Admin → Users → Edit → Primary Group</td><td>Set Primary Group to the same group</td><td>Embeds <code>family_group_id</code> in their JWT — apps use this to load the right data</td></tr>
+                <tr><td>4</td><td>Admin → App Access → Grant Access</td><td>Grant access to each app they need</td><td>Controls which apps accept their login</td></tr>
+            </tbody>
+        </table>
 
         <hr />
 

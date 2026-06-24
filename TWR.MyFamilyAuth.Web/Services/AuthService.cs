@@ -27,6 +27,7 @@ public class AuthService : AuthenticationStateProvider, IAuthService
 
     public string? LastLoginError         { get; private set; }
     public string? PendingChallengeToken  { get; private set; }
+    public bool    MustChangePassword     { get; private set; }
 
     public async Task<bool> LoginAsync(LoginRequest request)
     {
@@ -92,8 +93,9 @@ public class AuthService : AuthenticationStateProvider, IAuthService
 
     private Task CompleteLoginAsync(LoginResponse result)
     {
-        _token        = result.Token;
-        _refreshToken = result.RefreshToken;
+        _token             = result.Token;
+        _refreshToken      = result.RefreshToken;
+        MustChangePassword = result.MustChangePassword;
         _http.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _token);
 
@@ -120,7 +122,7 @@ public class AuthService : AuthenticationStateProvider, IAuthService
         _token        = null;
         _refreshToken = null;
         _http.DefaultRequestHeaders.Authorization = null;
-        _currentUser = new ClaimsPrincipal(new ClaimsIdentity());
+        _currentUser  = new ClaimsPrincipal(new ClaimsIdentity());
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
