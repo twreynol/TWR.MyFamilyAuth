@@ -1,6 +1,8 @@
 @page "/profile"
 @attribute [Authorize]
 @inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 @using Microsoft.AspNetCore.Components.Authorization
 
 <PageTitle>Profile — MyFamilyAuth</PageTitle>
@@ -8,6 +10,17 @@
 <AuthorizeView>
     <Authorized>
         <h4 class="mb-4"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h4>
+
+        @if (MustChange)
+        {
+            <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                <div>
+                    <strong>Password change required.</strong>
+                    Please set a new password below before continuing.
+                </div>
+            </div>
+        }
 
         @if (_user is null)
         {
@@ -61,7 +74,7 @@
             </div>
 
             <!-- Change Password -->
-            <div class="card shadow-sm mb-4">
+            <div class="card shadow-sm mb-4" id="change-password">
                 <div class="card-header fw-semibold">Change Password</div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(_pwMessage))
@@ -181,6 +194,10 @@
 </AuthorizeView>
 
 @code {
+    [SupplyParameterFromQuery(Name = "mustchange")]
+    public string? MustChangeParam { get; set; }
+    private bool MustChange => MustChangeParam == "1";
+
     private FamilyUserDto?        _user;
     private List<AppAccessDto>?   _appAccess;
     private List<TrustedDeviceVm>? _trustedDevices;
@@ -230,6 +247,12 @@
         _appAccess = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-user/{sub}") ?? [];
 
         _trustedDevices = await Http.GetFromJsonAsync<List<TrustedDeviceVm>>($"{ApiRoutes.Users}/{sub}/trusted-devices") ?? [];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && MustChange)
+            await JS.InvokeVoidAsync("scrollToAnchor", "change-password");
     }
 
     private async Task RevokeDevice(Guid trustId)

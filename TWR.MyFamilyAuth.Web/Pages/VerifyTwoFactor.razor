@@ -75,7 +75,7 @@
         _error   = string.Empty;
         var ok   = await AuthService.VerifyTwoFactorAsync(_code, _trustDevice);
         if (ok)
-            Navigation.NavigateTo("/");
+            Navigation.NavigateTo(AuthService.MustChangePassword ? "/profile?mustchange=1" : "/");
         else
             _error = AuthService.LastLoginError ?? "Invalid or expired verification code.";
         _loading = false;

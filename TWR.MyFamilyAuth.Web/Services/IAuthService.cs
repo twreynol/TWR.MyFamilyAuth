@@ -4,8 +4,9 @@ namespace TWR.MyFamilyAuth.Web.Services;
 
 public interface IAuthService
 {
-    string? LastLoginError { get; }
+    string? LastLoginError        { get; }
     string? PendingChallengeToken { get; }
+    bool    MustChangePassword    { get; }
     Task<bool> LoginAsync(LoginRequest request);
     Task<bool> VerifyTwoFactorAsync(string otpCode, bool trustDevice);
     Task LogoutAsync();
