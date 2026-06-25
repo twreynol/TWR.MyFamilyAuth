@@ -20,7 +20,8 @@
 
         <div class="mb-3">
             <label class="form-label">Email</label>
-            <input type="email" class="form-control" @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
+            <input type="email" class="form-control" @ref="_emailInput"
+                   @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
         </div>
         <div class="mb-3">
             <label class="form-label">Password</label>
@@ -56,12 +57,28 @@
 </div>
 
 @code {
-    private string _email        = string.Empty;
-    private string _password     = string.Empty;
-    private string _error        = string.Empty;
-    private bool   _loading;
-    private bool   _rememberMe;
-    private bool   _showPassword;
+    private string           _email        = string.Empty;
+    private string           _password     = string.Empty;
+    private string           _error        = string.Empty;
+    private bool             _loading;
+    private bool             _rememberMe;
+    private bool             _showPassword;
+    private ElementReference _emailInput;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "remember_me_email");
+            if (!string.IsNullOrEmpty(saved))
+            {
+                _email      = saved;
+                _rememberMe = true;
+                StateHasChanged();
+            }
+            try { await _emailInput.FocusAsync(); } catch { }
+        }
+    }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
     {
@@ -77,6 +94,12 @@
         }
         _loading = true;
         _error   = string.Empty;
+
+        if (_rememberMe)
+            await JS.InvokeVoidAsync("localStorage.setItem", "remember_me_email", _email.Trim());
+        else
+            await JS.InvokeVoidAsync("localStorage.removeItem", "remember_me_email");
+
         var deviceTrust = await JS.InvokeAsync<string?>("localStorage.getItem", "device_trust_myfamilyauth");
         var ok = await AuthService.LoginAsync(new LoginRequest(_email, _password,
             AppClientId: "myfamilyauth",
