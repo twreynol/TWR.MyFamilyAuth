@@ -8,5 +8,6 @@ public static class ApiRoutes
     public const string BuddyGrants = "api/buddy-grants";
     public const string Admin       = "api/admin";
     public const string AppAccess   = "api/app-access";
-    public const string Legal       = "api/legal";
+    public const string Legal        = "api/legal";
+    public const string Invitations  = "api/invitations";
 }

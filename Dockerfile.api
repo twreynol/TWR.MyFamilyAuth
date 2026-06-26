@@ -16,5 +16,9 @@ RUN dotnet publish TWR.MyFamilyAuth.API/TWR.MyFamilyAuth.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
+
+ARG BUILD_VERSION=dev
+ENV BUILD_VERSION=$BUILD_VERSION
+
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "TWR.MyFamilyAuth.API.dll"]

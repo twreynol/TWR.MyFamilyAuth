@@ -126,35 +126,4 @@ public partial class DataAccess
         catch (Exception ex) { _logger.LogError(ex, "Error updating app {Id}", id); throw; }
     }
 
-    public async Task<List<BuddyGrant>> GetBuddyGrantsForUserAsync(Guid familyUserId)
-    {
-        using var db = CreateContext();
-        try
-        {
-            return await db.BuddyGrants
-                .Include(g => g.Grantor).Include(g => g.Grantee)
-                .Where(g => g.GrantorId == familyUserId || g.GranteeId == familyUserId)
-                .ToListAsync();
-        }
-        catch (Exception ex) { _logger.LogError(ex, "Error fetching buddy grants for {Id}", familyUserId); throw; }
-    }
-
-    public async Task<BuddyGrant> CreateBuddyGrantAsync(BuddyGrant grant)
-    {
-        using var db = CreateContext();
-        try { grant.GrantedAt = DateTime.UtcNow; db.BuddyGrants.Add(grant); await db.SaveChangesAsync(); return grant; }
-        catch (Exception ex) { _logger.LogError(ex, "Error creating buddy grant"); throw; }
-    }
-
-    public async Task<bool> RevokeBuddyGrantAsync(Guid grantId, Guid grantorId)
-    {
-        using var db = CreateContext();
-        try
-        {
-            var g = await db.BuddyGrants.FirstOrDefaultAsync(x => x.Id == grantId && x.GrantorId == grantorId);
-            if (g is null) return false;
-            g.IsActive = false; g.RevokedAt = DateTime.UtcNow; await db.SaveChangesAsync(); return true;
-        }
-        catch (Exception ex) { _logger.LogError(ex, "Error revoking buddy grant {Id}", grantId); throw; }
-    }
 }

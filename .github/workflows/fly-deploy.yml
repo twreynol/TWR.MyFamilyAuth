@@ -16,6 +16,9 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Set build version
+        run: echo "BUILD_VERSION=1.$(date +%y%m%d).${{ github.run_number }}" >> $GITHUB_ENV
+
       # Pull .NET base images with retry logic to avoid MCR rate-limit issues
       # on shared GitHub Actions runner IPs.
       - name: Pull .NET base images (with MCR rate-limit retry)
@@ -36,7 +39,8 @@ jobs:
           flyctl deploy --local-only \
             --config fly.api.toml \
             --build-arg SDK_IMAGE=dotnet-sdk:local \
-            --build-arg ASPNET_IMAGE=dotnet-aspnet:local
+            --build-arg ASPNET_IMAGE=dotnet-aspnet:local \
+            --build-arg BUILD_VERSION=${{ env.BUILD_VERSION }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
@@ -50,6 +54,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Set build version
+        run: echo "BUILD_VERSION=1.$(date +%y%m%d).${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Pull .NET base images (with MCR rate-limit retry)
         run: |
@@ -67,6 +74,7 @@ jobs:
           flyctl deploy --local-only \
             --config fly.web.toml \
             --build-arg SDK_IMAGE=dotnet-sdk:local \
-            --build-arg APPSETTINGS_FILE=appsettings.Production.json
+            --build-arg APPSETTINGS_FILE=appsettings.Production.json \
+            --build-arg BUILD_VERSION=${{ env.BUILD_VERSION }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

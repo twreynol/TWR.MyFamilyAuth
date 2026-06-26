@@ -118,6 +118,74 @@ public class Program
                 }
             }
 
+            // Register MyMessages as an app (no 2FA required)
+            var msgApp = await data.GetRegisteredAppByClientIdAsync("mymessages");
+            if (msgApp is null)
+            {
+                msgApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "MyMessages",
+                    ClientId         = "mymessages",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5201\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = false
+                });
+                Log.Information("Registered MyMessages app (ClientId: mymessages)");
+            }
+
+            // Grant SuperAdmin access to MyMessages
+            if (superAdmin is not null)
+            {
+                var existingMsgAccess = await data.GetAppAccessAsync(superAdmin.Id, msgApp.Id);
+                if (existingMsgAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = msgApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to MyMessages for {Email}", adminEmail);
+                }
+            }
+
+            // Register TheFamilyInfo as an app (no 2FA required)
+            var fviApp = await data.GetRegisteredAppByClientIdAsync("thefamilyinfo");
+            if (fviApp is null)
+            {
+                fviApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "TheFamilyInfo",
+                    ClientId         = "thefamilyinfo",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5401\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = false
+                });
+                Log.Information("Registered TheFamilyInfo app (ClientId: thefamilyinfo)");
+            }
+
+            // Grant SuperAdmin access to TheFamilyInfo
+            var fviAccess = await data.GetAppAccessAsync(superAdmin.Id, fviApp.Id);
+            if (fviAccess is null)
+            {
+                if (superAdmin is not null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = fviApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to TheFamilyInfo for {Email}", adminEmail);
+                }
+            }
+
             app.UseCors("WebClients");
             app.UseAuthentication();
             app.UseAuthorization();

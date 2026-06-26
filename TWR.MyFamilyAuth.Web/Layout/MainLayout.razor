@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@inject BuildInfoService BuildInfo
 
 <div class="d-flex flex-column min-vh-100">
     <NavMenu />
@@ -8,5 +9,19 @@
     </main>
     <footer class="text-center text-muted small py-2 border-top">
         &copy; @DateTime.Now.Year TWR MyFamilyAuth
+        @if (_version is not null)
+        {
+            <span class="ms-1">v@_version</span>
+        }
     </footer>
 </div>
+
+@code {
+    private string? _version;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _version = await BuildInfo.GetVersionAsync();
+        if (_version == "dev") _version = null;
+    }
+}

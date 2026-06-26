@@ -129,7 +129,8 @@ public class AuthAppService : IAuthAppService
             }
         }
 
-        var token        = _jwt.GenerateToken(user, app.ClientId, access.AppRole);
+        var permissions  = await _data.GetPermissionsForUserAsync(user.Id);
+        var token        = _jwt.GenerateToken(user, permissions, app.ClientId, access.AppRole);
         string? refresh  = null;
         if (request.RememberMe)
         {
@@ -164,7 +165,8 @@ public class AuthAppService : IAuthAppService
         var user = stored.User;
         if (!user.IsActive || user.IsWard) return null;
 
-        var token       = _jwt.GenerateToken(user, stored.AppClientId);
+        var permissions = await _data.GetPermissionsForUserAsync(user.Id);
+        var token       = _jwt.GenerateToken(user, permissions, stored.AppClientId);
         var rawRefresh  = _jwt.GenerateRefreshToken();
         await _data.StoreRefreshTokenAsync(new RefreshToken
         {
@@ -258,7 +260,8 @@ public class AuthAppService : IAuthAppService
         var access = await _data.GetAppAccessAsync(user.Id, app.Id);
         if (access is null) return null;
 
-        var token = _jwt.GenerateToken(user, app.ClientId, access.AppRole);
+        var permissions      = await _data.GetPermissionsForUserAsync(user.Id);
+        var token            = _jwt.GenerateToken(user, permissions, app.ClientId, access.AppRole);
 
         var rawRefresh = _jwt.GenerateRefreshToken();
         await _data.StoreRefreshTokenAsync(new RefreshToken

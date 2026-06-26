@@ -67,6 +67,10 @@ public class MyFamilyAuthDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.Permissions).HasColumnType("text[]").IsRequired();
+            e.Property(x => x.GrantedAt).HasDefaultValueSql("now()");
+            e.HasIndex(x => new { x.GrantorId, x.GranteeId }).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint("CK_BuddyGrants_NoSelfGrant", "\"GrantorId\" <> \"GranteeId\""));
             e.HasOne(x => x.Grantor).WithMany(u => u.BuddyGrantsGiven)
              .HasForeignKey(x => x.GrantorId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Grantee).WithMany(u => u.BuddyGrantsReceived)
@@ -78,10 +82,12 @@ public class MyFamilyAuthDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
             e.Property(x => x.InviteeEmail).IsRequired().HasMaxLength(320);
+            e.Property(x => x.DisplayName).HasMaxLength(200);
             e.Property(x => x.Token).IsRequired().HasMaxLength(100);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => x.Token).IsUnique();
             e.HasOne(x => x.Group).WithMany()
-             .HasForeignKey(x => x.FamilyGroupId).OnDelete(DeleteBehavior.Cascade);
+             .HasForeignKey(x => x.FamilyGroupId).OnDelete(DeleteBehavior.Cascade).IsRequired(false);
             e.HasOne(x => x.InvitedBy).WithMany()
              .HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
         });

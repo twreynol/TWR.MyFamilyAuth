@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TWR.MyFamilyAuth.DAL;
@@ -11,9 +12,11 @@ using TWR.MyFamilyAuth.DAL;
 namespace TWR.MyFamilyAuth.DAL.Migrations
 {
     [DbContext(typeof(MyFamilyAuthDbContext))]
-    partial class MyFamilyAuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626140052_UpdateInvitationV2")]
+    partial class UpdateInvitationV2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

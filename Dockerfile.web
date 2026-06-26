@@ -15,7 +15,13 @@ RUN dotnet publish TWR.MyFamilyAuth.Web/TWR.MyFamilyAuth.Web.csproj \
 # docker-compose passes "appsettings.Docker.json"; fly.io passes "appsettings.Production.json"
 ARG APPSETTINGS_FILE=appsettings.Docker.json
 RUN cp TWR.MyFamilyAuth.Web/wwwroot/${APPSETTINGS_FILE} \
-       /app/wwwroot/appsettings.json
+       /app/wwwroot/appsettings.json && \
+    cp TWR.MyFamilyAuth.Web/wwwroot/${APPSETTINGS_FILE} \
+       /app/wwwroot/appsettings.Production.json
+
+# Bake the version into a static JSON file the Blazor app can fetch.
+ARG BUILD_VERSION=dev
+RUN echo "{\"version\":\"$BUILD_VERSION\"}" > /app/wwwroot/buildinfo.json
 
 # .NET 10 fingerprints framework assets (e.g. blazor.webassembly.abc123.js)
 # but index.html still references the plain name. nginx doesn't know the mapping,

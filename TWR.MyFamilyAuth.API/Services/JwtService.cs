@@ -15,7 +15,7 @@ public class JwtService : IJwtService
 
     public JwtService(IOptions<JwtSettings> settings) => _settings = settings.Value;
 
-    public string GenerateToken(FamilyUser user, string? appClientId = null, string? appRole = null)
+    public string GenerateToken(FamilyUser user, IEnumerable<string>? permissions = null, string? appClientId = null, string? appRole = null)
     {
         var key   = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -36,6 +36,9 @@ public class JwtService : IJwtService
             claims.Add(new("app_client_id", appClientId));
         if (!string.IsNullOrEmpty(appRole))
             claims.Add(new("app_role", appRole));
+        // V2: one claim per distinct permission granted to this user by others
+        foreach (var p in (permissions ?? []).Distinct())
+            claims.Add(new("permissions", p));
 
         var token = new JwtSecurityToken(
             issuer:             _settings.Issuer,

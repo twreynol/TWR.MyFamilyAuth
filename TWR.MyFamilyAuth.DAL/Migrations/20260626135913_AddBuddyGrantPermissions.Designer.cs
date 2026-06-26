@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TWR.MyFamilyAuth.DAL;
@@ -11,9 +12,11 @@ using TWR.MyFamilyAuth.DAL;
 namespace TWR.MyFamilyAuth.DAL.Migrations
 {
     [DbContext(typeof(MyFamilyAuthDbContext))]
-    partial class MyFamilyAuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260626135913_AddBuddyGrantPermissions")]
+    partial class AddBuddyGrantPermissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -340,18 +343,12 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("DisplayName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("FamilyGroupId")
+                    b.Property<Guid>("FamilyGroupId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("InvitedByUserId")
@@ -654,7 +651,8 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                     b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyGroup", "Group")
                         .WithMany()
                         .HasForeignKey("FamilyGroupId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyUser", "InvitedBy")
                         .WithMany()

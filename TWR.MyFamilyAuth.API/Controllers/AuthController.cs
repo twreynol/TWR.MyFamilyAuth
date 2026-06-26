@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TWR.MyFamilyAuth.API.AppServices;
 using TWR.MyFamilyAuth.Contracts.DTOs.Auth;
 using TWR.MyFamilyAuth.Contracts.Helpers;
+using TWR.MyFamilyAuth.DAL.Interfaces;
 
 namespace TWR.MyFamilyAuth.API.Controllers;
 
@@ -11,7 +13,8 @@ namespace TWR.MyFamilyAuth.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthAppService _auth;
-    public AuthController(IAuthAppService auth) => _auth = auth;
+    private readonly IDataAccess     _data;
+    public AuthController(IAuthAppService auth, IDataAccess data) { _auth = auth; _data = data; }
 
     [HttpPost("login")]
     [AllowAnonymous]
@@ -70,5 +73,24 @@ public class AuthController : ControllerBase
         var ip     = HttpContext.Connection.RemoteIpAddress?.ToString();
         var result = await _auth.VerifyTwoFactorAsync(request, ip);
         return result is null ? Unauthorized("Invalid or expired verification code.") : Ok(result);
+    }
+
+    // V2 — GET /api/auth/me — full profile + all permissions granted to the caller
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
+    {
+        var callerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user     = await _data.GetUserByIdAsync(callerId);
+        if (user is null) return NotFound();
+
+        var permissions = await _data.GetPermissionsForUserAsync(callerId);
+
+        return Ok(new UserProfileResponse(
+            user.Id, user.FirstName, user.LastName, user.FullName,
+            user.Email, user.Role, user.IsWard, user.GuardianId,
+            [.. permissions],
+            user.CreatedAt, user.LastAccessedAt
+        ));
     }
 }
