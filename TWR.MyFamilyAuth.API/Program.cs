@@ -170,10 +170,10 @@ public class Program
             }
 
             // Grant SuperAdmin access to TheFamilyInfo
-            var fviAccess = await data.GetAppAccessAsync(superAdmin.Id, fviApp.Id);
-            if (fviAccess is null)
+            if (superAdmin is not null)
             {
-                if (superAdmin is not null)
+                var fviAccess = await data.GetAppAccessAsync(superAdmin.Id, fviApp.Id);
+                if (fviAccess is null)
                 {
                     await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
                     {
@@ -185,6 +185,79 @@ public class Program
                     Log.Information("Granted Owner access to TheFamilyInfo for {Email}", adminEmail);
                 }
             }
+
+            // Register MyMedical as an app (2FA required — HIPAA-sensitive)
+            var medApp = await data.GetRegisteredAppByClientIdAsync("mymedical");
+            if (medApp is null)
+            {
+                medApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "MyMedical",
+                    ClientId         = "mymedical",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5000\",\"http://localhost:5001\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = true
+                });
+                Log.Information("Registered MyMedical app (ClientId: mymedical, 2FA: required)");
+            }
+
+            // Grant SuperAdmin access to MyMedical
+            if (superAdmin is not null)
+            {
+                var medAccess = await data.GetAppAccessAsync(superAdmin.Id, medApp.Id);
+                if (medAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = medApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to MyMedical for {Email}", adminEmail);
+                }
+            }
+
+            // ── Seed BuddyGrants ────────────────────────────────────────────────
+            // Idempotent — checks before inserting. These are the canonical V2 grants
+            // for the Reynolds/Reynolds-adjacent family circle.
+            // Production: same seeder runs after GUID alignment (see ProdMigrationRules.md).
+            async Task SeedGrantAsync(Guid grantorId, Guid granteeId, string[] permissions)
+            {
+                var existing = await data.GetGrantBetweenAsync(grantorId, granteeId);
+                if (existing is null)
+                {
+                    await data.CreateBuddyGrantAsync(new TWR.MyFamilyAuth.DAL.Entities.BuddyGrant
+                    {
+                        GrantorId   = grantorId,
+                        GranteeId   = granteeId,
+                        Permissions = permissions,
+                        IsActive    = true,
+                        GrantedAt   = DateTime.UtcNow
+                    });
+                    Log.Information("Seeded BuddyGrant {Grantor} -> {Grantee} [{Perms}]",
+                        grantorId, granteeId, string.Join(",", permissions));
+                }
+            }
+
+            var tim      = await data.GetUserByEmailAsync("twreynol@hotmail.com");
+            var diane    = await data.GetUserByEmailAsync("tanddreynolds@gmail.com");
+            var sarah    = await data.GetUserByEmailAsync("reynolds.sarahmarie@gmail.com");
+            var liz      = await data.GetUserByEmailAsync("Eclark710@gmail.com");
+
+            if (tim is not null && diane is not null)
+            {
+                // Full bidirectional access between Tim and Diane
+                await SeedGrantAsync(tim.Id,   diane.Id, ["Medical","Info","Messaging","Finances","Admin"]);
+                await SeedGrantAsync(diane.Id, tim.Id,   ["Medical","Info","Messaging","Finances","Admin"]);
+            }
+            if (tim is not null && sarah is not null)
+                await SeedGrantAsync(tim.Id, sarah.Id, ["Medical","Info","Messaging"]);
+
+            if (tim is not null && liz is not null)
+                await SeedGrantAsync(tim.Id, liz.Id, ["Medical","Info","Messaging"]);
 
             app.UseCors("WebClients");
             app.UseAuthentication();
