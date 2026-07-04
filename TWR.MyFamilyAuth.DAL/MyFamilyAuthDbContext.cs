@@ -19,6 +19,7 @@ public class MyFamilyAuthDbContext : DbContext
     public DbSet<AppAccess>          AppAccesses         => Set<AppAccess>();
     public DbSet<TwoFactorChallenge> TwoFactorChallenges => Set<TwoFactorChallenge>();
     public DbSet<DeviceTrust>        DeviceTrusts        => Set<DeviceTrust>();
+    public DbSet<UserAccessCache>    UserAccessCaches    => Set<UserAccessCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -171,6 +172,16 @@ public class MyFamilyAuthDbContext : DbContext
             e.Property(x => x.IpAddress).HasMaxLength(50);
             e.Property(x => x.AppClientId).HasMaxLength(100);
             e.Property(x => x.Notes).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<UserAccessCache>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.AppClientId });
+            e.Property(x => x.AppClientId).IsRequired().HasMaxLength(50);
+            e.Property(x => x.GrantorIds).HasColumnType("uuid[]").IsRequired();
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne<FamilyUser>().WithMany()
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

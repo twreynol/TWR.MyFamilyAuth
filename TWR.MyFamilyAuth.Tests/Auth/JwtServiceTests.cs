@@ -79,7 +79,7 @@ public class JwtServiceTests
         var svc    = Build();
         var token  = svc.GenerateToken(MakeUser(primaryGroupId: GroupId));
         var parsed = Parse(token);
-        Assert.Contains(parsed.Claims, c => c.Type == "family_group_id" && c.Value == GroupId.ToString());
+        Assert.Contains(parsed.Claims, c => c.Type == "RegisteredGroupId" && c.Value == GroupId.ToString());
     }
 
     [Fact]

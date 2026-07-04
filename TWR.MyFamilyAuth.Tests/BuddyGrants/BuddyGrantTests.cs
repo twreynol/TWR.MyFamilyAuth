@@ -6,6 +6,7 @@ using TWR.MyFamilyAuth.DAL.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace TWR.MyFamilyAuth.Tests.BuddyGrants;
 
@@ -17,7 +18,8 @@ public class BuddyGrantTests
 
     private static BuddyGrantsController BuildController(Guid callerId, Mock<IDataAccess> data)
     {
-        var controller = new BuddyGrantsController(data.Object);
+        var cache = new Mock<IMemoryCache>();
+        var controller = new BuddyGrantsController(data.Object, cache.Object);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext

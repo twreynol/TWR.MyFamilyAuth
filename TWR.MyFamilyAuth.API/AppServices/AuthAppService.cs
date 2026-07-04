@@ -190,6 +190,7 @@ public class AuthAppService : IAuthAppService
         if (stored is not null)
         {
             await _data.RevokeRefreshTokenAsync(stored.Id);
+            await _data.DeleteAccessCacheAsync(stored.FamilyUserId);
             await _data.WriteAuditLogAsync(new AuditLog { FamilyUserId = stored.FamilyUserId, Action = "Logout" });
         }
     }

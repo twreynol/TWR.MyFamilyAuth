@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using TWR.MyFamilyAuth.Contracts.DTOs.BuddyGrants;
 using TWR.MyFamilyAuth.DAL.Entities;
 using TWR.MyFamilyAuth.DAL.Interfaces;
@@ -16,8 +17,14 @@ namespace TWR.MyFamilyAuth.API.Controllers;
 [Authorize]
 public class BuddyGrantsController : ControllerBase
 {
-    private readonly IDataAccess _data;
-    public BuddyGrantsController(IDataAccess data) => _data = data;
+    private readonly IDataAccess  _data;
+    private readonly IMemoryCache _cache;
+
+    public BuddyGrantsController(IDataAccess data, IMemoryCache cache)
+    {
+        _data  = data;
+        _cache = cache;
+    }
 
     // GET /api/users/{id}/grants/given — grants this user has given to others
     [HttpGet("api/users/{id:guid}/grants/given")]
@@ -71,6 +78,7 @@ public class BuddyGrantsController : ControllerBase
             existing.IsActive    = true;
             existing.RevokedAt   = null;
             await _data.UpdateBuddyGrantAsync(existing);
+            ClearAccessCacheForUser(request.GranteeId);
             return Ok(await BuildDto(existing));
         }
 
@@ -81,6 +89,7 @@ public class BuddyGrantsController : ControllerBase
             Permissions = request.Permissions.Distinct().ToArray()
         });
 
+        ClearAccessCacheForUser(request.GranteeId);
         return Ok(await BuildDto(grant));
     }
 
@@ -100,7 +109,66 @@ public class BuddyGrantsController : ControllerBase
 
         grant.Permissions = request.Permissions.Distinct().ToArray();
         await _data.UpdateBuddyGrantAsync(grant);
+        ClearAccessCacheForUser(grant.GranteeId);
         return Ok(ToDto(grant));
+    }
+
+    // POST /api/users/{id}/grants/{granteeId}/permissions/{permission}
+    // Adds one permission to the existing grant (or creates it). Never removes other permissions.
+    [HttpPost("api/users/{id:guid}/grants/{granteeId:guid}/permissions/{permission}")]
+    public async Task<IActionResult> AddPermission(Guid id, Guid granteeId, string permission)
+    {
+        var callerId = GetCallerId();
+        if (callerId != id) return Forbid();
+        if (id == granteeId) return BadRequest("Cannot grant permissions to yourself.");
+        if (!BuddyGrantPermissions.All.Contains(permission))
+            return BadRequest($"Invalid permission '{permission}'. Valid: {string.Join(", ", BuddyGrantPermissions.All)}");
+
+        var existing = await _data.GetGrantBetweenAsync(id, granteeId);
+        if (existing is not null)
+        {
+            if (!existing.Permissions.Contains(permission))
+                existing.Permissions = [.. existing.Permissions, permission];
+            existing.IsActive  = true;
+            existing.RevokedAt = null;
+            await _data.UpdateBuddyGrantAsync(existing);
+            ClearAccessCacheForUser(granteeId);
+            return Ok(await BuildDto(existing));
+        }
+
+        var grant = await _data.CreateBuddyGrantAsync(new BuddyGrant
+        {
+            GrantorId   = id,
+            GranteeId   = granteeId,
+            Permissions = [permission]
+        });
+        ClearAccessCacheForUser(granteeId);
+        return Ok(await BuildDto(grant));
+    }
+
+    // DELETE /api/users/{id}/grants/{granteeId}/permissions/{permission}
+    // Removes one permission from the grant. Deletes the grant if it becomes empty.
+    [HttpDelete("api/users/{id:guid}/grants/{granteeId:guid}/permissions/{permission}")]
+    public async Task<IActionResult> RemovePermission(Guid id, Guid granteeId, string permission)
+    {
+        var callerId = GetCallerId();
+        if (callerId != id) return Forbid();
+
+        var existing = await _data.GetGrantBetweenAsync(id, granteeId);
+        if (existing is null) return NotFound();
+
+        var remaining = existing.Permissions.Where(p => p != permission).ToArray();
+        if (remaining.Length == 0)
+        {
+            await _data.RevokeBuddyGrantAsync(existing.Id, id);
+        }
+        else
+        {
+            existing.Permissions = remaining;
+            await _data.UpdateBuddyGrantAsync(existing);
+        }
+        ClearAccessCacheForUser(granteeId);
+        return Ok();
     }
 
     // DELETE /api/users/{id}/grants/{grantId} — revoke a grant (caller must be the grantor)
@@ -110,11 +178,27 @@ public class BuddyGrantsController : ControllerBase
         var callerId = GetCallerId();
         if (callerId != id && !User.IsInRole(FamilyRoles.SuperAdmin)) return Forbid();
 
+        var grant = await _data.GetGrantByIdAsync(grantId);
+        if (grant is null || grant.GrantorId != id) return NotFound();
+
         var ok = await _data.RevokeBuddyGrantAsync(grantId, id);
+        if (ok)
+            ClearAccessCacheForUser(grant.GranteeId);
+
         return ok ? Ok() : NotFound();
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
+
+    private void ClearAccessCacheForUser(Guid userId)
+    {
+        var appClientIds = new[] { "mymedical", "myfinances", "thefamilyinfo", "mymessages" };
+        foreach (var appId in appClientIds)
+        {
+            var cacheKey = $"access-list:{userId}:{appId}";
+            _cache.Remove(cacheKey);
+        }
+    }
 
     private Guid GetCallerId() =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

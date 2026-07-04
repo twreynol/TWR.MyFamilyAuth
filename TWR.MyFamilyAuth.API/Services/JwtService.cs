@@ -29,7 +29,7 @@ public class JwtService : IJwtService
             new(ClaimTypes.Role,                    user.Role),
         };
         if (user.PrimaryGroupId.HasValue)
-            claims.Add(new("family_group_id", user.PrimaryGroupId.Value.ToString()));
+            claims.Add(new("RegisteredGroupId", user.PrimaryGroupId.Value.ToString()));
         if (!string.IsNullOrEmpty(user.TimeZoneId))
             claims.Add(new("tz", user.TimeZoneId));
         if (!string.IsNullOrEmpty(appClientId))

@@ -31,7 +31,9 @@ public class AdminController : ControllerBase
         var secret       = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
         var hash         = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
                                System.Text.Encoding.UTF8.GetBytes(secret))).ToLowerInvariant();
-        var clientId     = Guid.NewGuid().ToString("N")[..16];
+        var clientId     = !string.IsNullOrWhiteSpace(request.ClientId)
+                             ? request.ClientId.Trim().ToLowerInvariant()
+                             : Guid.NewGuid().ToString("N")[..16];
         var rolesJson    = JsonSerializer.Serialize(request.SupportedRoles ?? new List<string> { "User" });
 
         var app = await _data.CreateRegisteredAppAsync(new RegisteredApp

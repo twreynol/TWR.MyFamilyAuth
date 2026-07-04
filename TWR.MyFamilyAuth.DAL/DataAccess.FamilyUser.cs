@@ -16,7 +16,11 @@ public partial class DataAccess
     public async Task<FamilyUser?> GetUserByEmailAsync(string email)
     {
         using var db = CreateContext();
-        try { return await db.FamilyUsers.FirstOrDefaultAsync(u => u.Email == email); }
+        // Case-insensitive on purpose: new writes are lowercased, but older/seeded rows may
+        // carry mixed-case emails. A raw == comparison here silently locks such accounts out
+        // of login no matter what password they enter — this happened to a real account.
+        var normalized = email.Trim().ToLowerInvariant();
+        try { return await db.FamilyUsers.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized); }
         catch (Exception ex) { _logger.LogError(ex, "Error fetching user by email {Email}", email); throw; }
     }
 
@@ -151,5 +155,17 @@ public partial class DataAccess
             return admin;
         }
         catch (Exception ex) { _logger.LogError(ex, "Error seeding super admin {Email}", email); throw; }
+    }
+
+    public async Task<List<FamilyUser>> GetWardsByGuardianAsync(Guid guardianId)
+    {
+        using var db = CreateContext();
+        try
+        {
+            return await db.FamilyUsers
+                .Where(u => u.GuardianId == guardianId && u.IsWard && u.IsActive)
+                .ToListAsync();
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Error fetching wards for guardian {GuardianId}", guardianId); throw; }
     }
 }

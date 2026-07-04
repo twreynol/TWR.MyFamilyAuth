@@ -83,6 +83,12 @@ public partial class DataAccess
             grant.IsActive  = true;
             db.BuddyGrants.Add(grant);
             await db.SaveChangesAsync();
+
+            // Clear the access cache for the grantee so new permissions take effect immediately
+            await db.UserAccessCaches
+                .Where(c => c.UserId == grant.GranteeId)
+                .ExecuteDeleteAsync();
+
             return grant;
         }
         catch (Exception ex)
@@ -98,7 +104,17 @@ public partial class DataAccess
         try
         {
             db.BuddyGrants.Update(grant);
-            return await db.SaveChangesAsync() > 0;
+            var success = await db.SaveChangesAsync() > 0;
+
+            // Clear the access cache for the grantee so permission changes take effect immediately
+            if (success)
+            {
+                await db.UserAccessCaches
+                    .Where(c => c.UserId == grant.GranteeId)
+                    .ExecuteDeleteAsync();
+            }
+
+            return success;
         }
         catch (Exception ex)
         {
@@ -118,7 +134,17 @@ public partial class DataAccess
 
             grant.IsActive  = false;
             grant.RevokedAt = DateTime.UtcNow;
-            return await db.SaveChangesAsync() > 0;
+            var success = await db.SaveChangesAsync() > 0;
+
+            // Clear the access cache for the grantee so permission changes take effect immediately
+            if (success)
+            {
+                await db.UserAccessCaches
+                    .Where(c => c.UserId == grant.GranteeId)
+                    .ExecuteDeleteAsync();
+            }
+
+            return success;
         }
         catch (Exception ex)
         {

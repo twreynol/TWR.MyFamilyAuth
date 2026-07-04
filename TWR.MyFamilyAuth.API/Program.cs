@@ -186,7 +186,7 @@ public class Program
                 }
             }
 
-            // Register MyMedical as an app (2FA required — HIPAA-sensitive)
+            // Register MyMedical as an app (2FA disabled until MyMedical implements the 2FA relay flow)
             var medApp = await data.GetRegisteredAppByClientIdAsync("mymedical");
             if (medApp is null)
             {
@@ -198,9 +198,15 @@ public class Program
                     AllowedOrigins   = "[\"http://localhost:5000\",\"http://localhost:5001\"]",
                     SupportedRoles   = "[\"Owner\",\"User\"]",
                     IsActive         = true,
-                    Requires2FA      = true
+                    Requires2FA      = false
                 });
-                Log.Information("Registered MyMedical app (ClientId: mymedical, 2FA: required)");
+                Log.Information("Registered MyMedical app (ClientId: mymedical, 2FA: disabled)");
+            }
+            else if (medApp.Requires2FA)
+            {
+                // Patch existing record — 2FA relay not yet implemented in MyMedical V2
+                await data.UpdateRegisteredAppAsync(medApp.Id, requires2Fa: false);
+                Log.Information("Patched MyMedical app — disabled 2FA until relay flow is implemented");
             }
 
             // Grant SuperAdmin access to MyMedical
@@ -282,6 +288,7 @@ public class Program
         services.Configure<JwtSettings>(configuration.GetSection(nameof(JwtSettings)));
         services.Configure<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
 
+        services.AddMemoryCache();
         services.AddSingleton<IDataAccess, DataAccess>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddScoped<IAuthAppService, AuthAppService>();
