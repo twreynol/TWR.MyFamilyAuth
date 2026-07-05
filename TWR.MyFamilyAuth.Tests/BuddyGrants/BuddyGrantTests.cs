@@ -102,6 +102,8 @@ public class BuddyGrantTests
     {
         var grantId = Guid.NewGuid();
         var data    = new Mock<IDataAccess>();
+        data.Setup(d => d.GetGrantByIdAsync(grantId))
+            .ReturnsAsync(new BuddyGrant { Id = grantId, GrantorId = TimId, GranteeId = SarahId });
         data.Setup(d => d.RevokeBuddyGrantAsync(grantId, TimId)).ReturnsAsync(true);
 
         var controller = BuildController(TimId, data);
