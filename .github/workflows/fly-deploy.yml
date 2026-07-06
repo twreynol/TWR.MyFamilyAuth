@@ -74,7 +74,7 @@ jobs:
           flyctl deploy --local-only \
             --config fly.web.toml \
             --build-arg SDK_IMAGE=dotnet-sdk:local \
-            --build-arg APPSETTINGS_FILE=appsettings.Production.json \
+            --build-arg APPSETTINGS_FILE=appsettings.ProductionV2.json \
             --build-arg BUILD_VERSION=${{ env.BUILD_VERSION }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
