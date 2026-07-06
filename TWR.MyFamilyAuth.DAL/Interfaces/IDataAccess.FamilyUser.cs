@@ -14,4 +14,5 @@ public partial interface IDataAccess
     Task                     UpdateLastAccessedAsync(Guid userId);
     Task<bool>               DeactivateUserAsync(Guid id);
     Task<FamilyUser>         SeedSuperAdminAsync(string email, string firstName, string lastName, string passwordHash);
+    Task<List<FamilyUser>>   GetWardsByGuardianAsync(Guid guardianId);
 }

@@ -118,6 +118,153 @@ public class Program
                 }
             }
 
+            // Register MyMessages as an app (no 2FA required)
+            var msgApp = await data.GetRegisteredAppByClientIdAsync("mymessages");
+            if (msgApp is null)
+            {
+                msgApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "MyMessages",
+                    ClientId         = "mymessages",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5201\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = false
+                });
+                Log.Information("Registered MyMessages app (ClientId: mymessages)");
+            }
+
+            // Grant SuperAdmin access to MyMessages
+            if (superAdmin is not null)
+            {
+                var existingMsgAccess = await data.GetAppAccessAsync(superAdmin.Id, msgApp.Id);
+                if (existingMsgAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = msgApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to MyMessages for {Email}", adminEmail);
+                }
+            }
+
+            // Register TheFamilyInfo as an app (no 2FA required)
+            var fviApp = await data.GetRegisteredAppByClientIdAsync("thefamilyinfo");
+            if (fviApp is null)
+            {
+                fviApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "TheFamilyInfo",
+                    ClientId         = "thefamilyinfo",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5401\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = false
+                });
+                Log.Information("Registered TheFamilyInfo app (ClientId: thefamilyinfo)");
+            }
+
+            // Grant SuperAdmin access to TheFamilyInfo
+            if (superAdmin is not null)
+            {
+                var fviAccess = await data.GetAppAccessAsync(superAdmin.Id, fviApp.Id);
+                if (fviAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = fviApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to TheFamilyInfo for {Email}", adminEmail);
+                }
+            }
+
+            // Register MyMedical as an app (2FA disabled until MyMedical implements the 2FA relay flow)
+            var medApp = await data.GetRegisteredAppByClientIdAsync("mymedical");
+            if (medApp is null)
+            {
+                medApp = await data.CreateRegisteredAppAsync(new TWR.MyFamilyAuth.DAL.Entities.RegisteredApp
+                {
+                    Name             = "MyMedical",
+                    ClientId         = "mymedical",
+                    ClientSecretHash = string.Empty,
+                    AllowedOrigins   = "[\"http://localhost:5000\",\"http://localhost:5001\"]",
+                    SupportedRoles   = "[\"Owner\",\"User\"]",
+                    IsActive         = true,
+                    Requires2FA      = false
+                });
+                Log.Information("Registered MyMedical app (ClientId: mymedical, 2FA: disabled)");
+            }
+            else if (medApp.Requires2FA)
+            {
+                // Patch existing record — 2FA relay not yet implemented in MyMedical V2
+                await data.UpdateRegisteredAppAsync(medApp.Id, requires2Fa: false);
+                Log.Information("Patched MyMedical app — disabled 2FA until relay flow is implemented");
+            }
+
+            // Grant SuperAdmin access to MyMedical
+            if (superAdmin is not null)
+            {
+                var medAccess = await data.GetAppAccessAsync(superAdmin.Id, medApp.Id);
+                if (medAccess is null)
+                {
+                    await data.GrantAppAccessAsync(new TWR.MyFamilyAuth.DAL.Entities.AppAccess
+                    {
+                        FamilyUserId    = superAdmin.Id,
+                        RegisteredAppId = medApp.Id,
+                        AppRole         = "Owner",
+                        GrantedByUserId = superAdmin.Id
+                    });
+                    Log.Information("Granted Owner access to MyMedical for {Email}", adminEmail);
+                }
+            }
+
+            // ── Seed BuddyGrants ────────────────────────────────────────────────
+            // Idempotent — checks before inserting. These are the canonical V2 grants
+            // for the Reynolds/Reynolds-adjacent family circle.
+            // Production: same seeder runs after GUID alignment (see ProdMigrationRules.md).
+            async Task SeedGrantAsync(Guid grantorId, Guid granteeId, string[] permissions)
+            {
+                var existing = await data.GetGrantBetweenAsync(grantorId, granteeId);
+                if (existing is null)
+                {
+                    await data.CreateBuddyGrantAsync(new TWR.MyFamilyAuth.DAL.Entities.BuddyGrant
+                    {
+                        GrantorId   = grantorId,
+                        GranteeId   = granteeId,
+                        Permissions = permissions,
+                        IsActive    = true,
+                        GrantedAt   = DateTime.UtcNow
+                    });
+                    Log.Information("Seeded BuddyGrant {Grantor} -> {Grantee} [{Perms}]",
+                        grantorId, granteeId, string.Join(",", permissions));
+                }
+            }
+
+            var tim      = await data.GetUserByEmailAsync("twreynol@hotmail.com");
+            var diane    = await data.GetUserByEmailAsync("tanddreynolds@gmail.com");
+            var sarah    = await data.GetUserByEmailAsync("reynolds.sarahmarie@gmail.com");
+            var liz      = await data.GetUserByEmailAsync("Eclark710@gmail.com");
+
+            if (tim is not null && diane is not null)
+            {
+                // Full bidirectional access between Tim and Diane
+                await SeedGrantAsync(tim.Id,   diane.Id, ["Medical","Info","Messaging","Finances","Admin"]);
+                await SeedGrantAsync(diane.Id, tim.Id,   ["Medical","Info","Messaging","Finances","Admin"]);
+            }
+            if (tim is not null && sarah is not null)
+                await SeedGrantAsync(tim.Id, sarah.Id, ["Medical","Info","Messaging"]);
+
+            if (tim is not null && liz is not null)
+                await SeedGrantAsync(tim.Id, liz.Id, ["Medical","Info","Messaging"]);
+
             app.UseCors("WebClients");
             app.UseAuthentication();
             app.UseAuthorization();
@@ -141,6 +288,7 @@ public class Program
         services.Configure<JwtSettings>(configuration.GetSection(nameof(JwtSettings)));
         services.Configure<EmailSettings>(configuration.GetSection(nameof(EmailSettings)));
 
+        services.AddMemoryCache();
         services.AddSingleton<IDataAccess, DataAccess>();
         services.AddSingleton<IJwtService, JwtService>();
         services.AddScoped<IAuthAppService, AuthAppService>();

@@ -1,0 +1,41 @@
+@page "/buddies"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Authorization
+@using TWR.Shared.Components.Components
+
+<PageTitle>My Buddies — MyFamilyAuth</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h4 class="mb-1"><i class="bi bi-people-fill me-2 text-primary"></i>My Buddies</h4>
+        <p class="text-muted small mb-4">
+            Control who can see your data across all MyApps. Granting access shares YOUR data only —
+            it does not give you access to their data.
+        </p>
+
+        @if (_userId == Guid.Empty)
+        {
+            <div class="spinner-border spinner-border-sm"></div>
+        }
+        else
+        {
+            <BuddyDialog CurrentUserId="_userId" />
+        }
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private Guid _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+        var state = await AuthState;
+        var sub   = state.User.FindFirst(u => u.Type.EndsWith("nameidentifier"))?.Value
+                    ?? state.User.FindFirst("sub")?.Value;
+        if (Guid.TryParse(sub, out var id)) _userId = id;
+    }
+}

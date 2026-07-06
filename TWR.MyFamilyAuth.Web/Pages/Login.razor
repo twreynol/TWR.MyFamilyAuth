@@ -4,6 +4,7 @@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject BuildInfoService BuildInfo
 
 <PageTitle>Sign In — MyFamilyAuth</PageTitle>
 
@@ -48,6 +49,12 @@
             }
             Sign In
         </button>
+        @if (_version is not null)
+        {
+            <p class="text-center text-muted mt-3 mb-0" style="font-size:0.7rem;opacity:0.6">
+                v@_version
+            </p>
+        }
         <div class="text-center mt-3">
             <a href="/help/signing-in" class="small text-decoration-none text-muted">
                 <i class="bi bi-question-circle me-1"></i>Need help?
@@ -64,6 +71,13 @@
     private bool             _rememberMe;
     private bool             _showPassword;
     private ElementReference _emailInput;
+    private string?          _version;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _version = await BuildInfo.GetVersionAsync();
+        if (_version == "dev") _version = null;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

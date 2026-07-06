@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Serilog;
 using TWR.MyFamilyAuth.Web.Services;
+using TWR.Shared.Components.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<TWR.MyFamilyAuth.Web.App>("#app");
@@ -25,5 +26,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<AuthService>());
 builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
+builder.Services.AddScoped<BuildInfoService>();
+builder.Services.AddScoped<IBuddyManagementService, BuddyManagementService>();
 
 await builder.Build().RunAsync();

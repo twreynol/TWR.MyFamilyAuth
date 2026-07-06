@@ -132,6 +132,26 @@ public class UsersController : ControllerBase
         return Ok();
     }
 
+    // GET /api/users/lookup?email=x — find any registered user by email.
+    // Any authenticated user may look up another by email (needed for BuddyDialog add flow).
+    // Returns only non-Ward, active accounts. Returns 404 if no match.
+    [HttpGet("lookup")]
+    public async Task<IActionResult> LookupByEmail([FromQuery] string email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return BadRequest("email is required.");
+        var user = await _data.GetUserByEmailAsync(email.Trim().ToLowerInvariant());
+        if (user is null || !user.IsActive || user.IsWard) return NotFound();
+
+        var access = await _data.GetAppAccessByUserAsync(user.Id);
+        var appIds = access
+            .Where(a => a.IsActive && a.RevokedAt is null)
+            .Select(a => a.App?.ClientId ?? string.Empty)
+            .Where(c => !string.IsNullOrEmpty(c))
+            .ToArray();
+
+        return Ok(new UserLookupResult(user.Id, user.FullName, user.Email, appIds));
+    }
+
     private static FamilyUserDto ToDto(FamilyUser u) => new(
         u.Id, u.FirstName, u.LastName, u.FullName, u.Email, u.Role,
         u.IsActive, u.IsWard, u.GuardianId, u.MustChangePassword,

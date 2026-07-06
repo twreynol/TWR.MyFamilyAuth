@@ -19,6 +19,7 @@ public class MyFamilyAuthDbContext : DbContext
     public DbSet<AppAccess>          AppAccesses         => Set<AppAccess>();
     public DbSet<TwoFactorChallenge> TwoFactorChallenges => Set<TwoFactorChallenge>();
     public DbSet<DeviceTrust>        DeviceTrusts        => Set<DeviceTrust>();
+    public DbSet<UserAccessCache>    UserAccessCaches    => Set<UserAccessCache>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,10 @@ public class MyFamilyAuthDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.Permissions).HasColumnType("text[]").IsRequired();
+            e.Property(x => x.GrantedAt).HasDefaultValueSql("now()");
+            e.HasIndex(x => new { x.GrantorId, x.GranteeId }).IsUnique();
+            e.ToTable(t => t.HasCheckConstraint("CK_BuddyGrants_NoSelfGrant", "\"GrantorId\" <> \"GranteeId\""));
             e.HasOne(x => x.Grantor).WithMany(u => u.BuddyGrantsGiven)
              .HasForeignKey(x => x.GrantorId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Grantee).WithMany(u => u.BuddyGrantsReceived)
@@ -78,10 +83,12 @@ public class MyFamilyAuthDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
             e.Property(x => x.InviteeEmail).IsRequired().HasMaxLength(320);
+            e.Property(x => x.DisplayName).HasMaxLength(200);
             e.Property(x => x.Token).IsRequired().HasMaxLength(100);
+            e.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             e.HasIndex(x => x.Token).IsUnique();
             e.HasOne(x => x.Group).WithMany()
-             .HasForeignKey(x => x.FamilyGroupId).OnDelete(DeleteBehavior.Cascade);
+             .HasForeignKey(x => x.FamilyGroupId).OnDelete(DeleteBehavior.Cascade).IsRequired(false);
             e.HasOne(x => x.InvitedBy).WithMany()
              .HasForeignKey(x => x.InvitedByUserId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -165,6 +172,16 @@ public class MyFamilyAuthDbContext : DbContext
             e.Property(x => x.IpAddress).HasMaxLength(50);
             e.Property(x => x.AppClientId).HasMaxLength(100);
             e.Property(x => x.Notes).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<UserAccessCache>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.AppClientId });
+            e.Property(x => x.AppClientId).IsRequired().HasMaxLength(50);
+            e.Property(x => x.GrantorIds).HasColumnType("uuid[]").IsRequired();
+            e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+            e.HasOne<FamilyUser>().WithMany()
+             .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

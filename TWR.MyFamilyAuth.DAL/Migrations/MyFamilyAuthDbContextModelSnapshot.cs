@@ -106,7 +106,9 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                         .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<DateTime>("GrantedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
 
                     b.Property<Guid>("GranteeId")
                         .HasColumnType("uuid");
@@ -117,6 +119,10 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.PrimitiveCollection<string[]>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -124,9 +130,13 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
 
                     b.HasIndex("GranteeId");
 
-                    b.HasIndex("GrantorId");
+                    b.HasIndex("GrantorId", "GranteeId")
+                        .IsUnique();
 
-                    b.ToTable("BuddyGrants");
+                    b.ToTable("BuddyGrants", t =>
+                        {
+                            t.HasCheckConstraint("CK_BuddyGrants_NoSelfGrant", "\"GrantorId\" <> \"GranteeId\"");
+                        });
                 });
 
             modelBuilder.Entity("TWR.MyFamilyAuth.DAL.Entities.DeviceTrust", b =>
@@ -330,12 +340,18 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("FamilyGroupId")
+                    b.Property<Guid?>("FamilyGroupId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("InvitedByUserId")
@@ -530,6 +546,29 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                     b.ToTable("TwoFactorChallenges");
                 });
 
+            modelBuilder.Entity("TWR.MyFamilyAuth.DAL.Entities.UserAccessCache", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AppClientId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.PrimitiveCollection<Guid[]>("GrantorIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("UserId", "AppClientId");
+
+                    b.ToTable("UserAccessCaches");
+                });
+
             modelBuilder.Entity("TWR.MyFamilyAuth.DAL.Entities.AppAccess", b =>
                 {
                     b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyUser", "User")
@@ -638,8 +677,7 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                     b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyGroup", "Group")
                         .WithMany()
                         .HasForeignKey("FamilyGroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyUser", "InvitedBy")
                         .WithMany()
@@ -691,6 +729,15 @@ namespace TWR.MyFamilyAuth.DAL.Migrations
                     b.Navigation("App");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TWR.MyFamilyAuth.DAL.Entities.UserAccessCache", b =>
+                {
+                    b.HasOne("TWR.MyFamilyAuth.DAL.Entities.FamilyUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TWR.MyFamilyAuth.DAL.Entities.FamilyGroup", b =>

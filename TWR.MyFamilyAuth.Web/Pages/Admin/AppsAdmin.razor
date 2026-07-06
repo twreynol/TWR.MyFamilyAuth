@@ -130,6 +130,12 @@ else
                         <input class="form-control" @bind="_createName" />
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Client ID <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="form-control font-monospace" @bind="_createClientId"
+                               placeholder="e.g. thefamilyinfo — leave blank to auto-generate" />
+                        <div class="form-text">Use a short, lowercase, no-spaces identifier. Auto-generated if left blank.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Allowed Origins</label>
                         <textarea class="form-control" rows="2" @bind="_createOrigins"
                                   placeholder="https://myapp.example.com"></textarea>
@@ -186,6 +192,7 @@ else
     private bool    _modalLoading;
     private string  _modalError    = string.Empty;
     private string  _createName    = string.Empty;
+    private string  _createClientId = string.Empty;
     private string  _createOrigins = string.Empty;
     private string  _createRoles   = string.Empty;
 
@@ -204,7 +211,7 @@ else
 
     private void OpenCreateModal()
     {
-        _createName = _createOrigins = _createRoles = _modalError = string.Empty;
+        _createName = _createClientId = _createOrigins = _createRoles = _modalError = string.Empty;
         _showCreateModal = true;
     }
 
@@ -215,7 +222,8 @@ else
         _modalError = string.Empty;
         _modalLoading = true;
         var roles = ParseRoles(_createRoles);
-        var req   = new CreateAppRequest(_createName, _createOrigins, roles);
+        var req   = new CreateAppRequest(_createName, _createOrigins, roles,
+                        string.IsNullOrWhiteSpace(_createClientId) ? null : _createClientId);
         var r     = await Http.PostAsJsonAsync($"{ApiRoutes.Admin}/apps", req);
         _modalLoading = false;
         if (r.IsSuccessStatusCode)

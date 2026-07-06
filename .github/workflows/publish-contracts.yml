@@ -1,0 +1,27 @@
+name: Publish TWR.MyFamilyAuth.Contracts to GitHub Packages
+
+# Fires when a tag like "contracts-v1.0.0" is pushed. Bump <Version> in
+# TWR.MyFamilyAuth.Contracts.csproj to match the tag before tagging.
+on:
+  push:
+    tags:
+      - "contracts-v*"
+
+jobs:
+  publish:
+    name: Pack and push TWR.MyFamilyAuth.Contracts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Pack
+        run: dotnet pack TWR.MyFamilyAuth.Contracts/TWR.MyFamilyAuth.Contracts.csproj -c Release -o ./nupkg
+
+      - name: Push to GitHub Packages
+        run: dotnet nuget push "./nupkg/*.nupkg" --source "https://nuget.pkg.github.com/twreynol/index.json" --api-key ${{ secrets.GH_PACKAGES_TOKEN }} --skip-duplicate

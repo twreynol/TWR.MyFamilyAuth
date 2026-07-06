@@ -29,6 +29,11 @@
                             <i class="bi bi-person-circle me-1"></i>Profile
                         </NavLink>
                     </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="/buddies">
+                            <i class="bi bi-people me-1"></i>My Buddies
+                        </NavLink>
+                    </li>
                     <AuthorizeView Roles="SuperAdmin,FamilyAdmin" Context="adminCtx">
                         <Authorized>
                             <li class="nav-item">
@@ -74,6 +79,7 @@
     {
         { "",                  "" },
         { "profile",           "my-profile" },
+        { "buddies",           "my-buddies" },
         { "admin/users",       "admin--users" },
         { "admin/groups",      "admin--groups" },
         { "admin/apps",        "admin--apps" },
