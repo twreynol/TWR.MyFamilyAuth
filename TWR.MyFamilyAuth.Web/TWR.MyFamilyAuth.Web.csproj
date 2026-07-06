@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TWR.MyFamilyAuth.Contracts\TWR.MyFamilyAuth.Contracts.csproj" />
-    <ProjectReference Include="..\..\TWR.Shared.Components\TWR.Shared.Components.csproj" />
+    <PackageReference Include="TWR.Shared.Components" Version="1.0.0" />
   </ItemGroup>
 
 </Project>
