@@ -1,4 +1,4 @@
-app            = 'myfamilyauth-api'
+app            = 'myfamilyauth-api-v2'
 primary_region = 'iad'
 
 [build]

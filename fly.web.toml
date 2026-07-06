@@ -1,11 +1,11 @@
-app            = 'myfamilyauth-web'
+app            = 'myfamilyauth-web-v2'
 primary_region = 'iad'
 
 [build]
   dockerfile = 'Dockerfile.web'
 
   [build.args]
-    APPSETTINGS_FILE = 'appsettings.Production.json'
+    APPSETTINGS_FILE = 'appsettings.ProductionV2.json'
 
 [http_service]
   internal_port        = 80
