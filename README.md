@@ -65,7 +65,7 @@ MyFamilyAuth acts as the **authentication and authorization gateway** for all TW
 │              └──────────┬──────────┘                        │
 │                         │                                   │
 │              ┌──────────▼──────────┐                        │
-│              │  PostgreSQL (Neon)   │                        │
+│              │  PostgreSQL (Fly)    │                        │
 │              └─────────────────────┘                        │
 └─────────────────────────────────────────────────────────────┘
                         │
@@ -107,7 +107,7 @@ MyFamilyAuth acts as the **authentication and authorization gateway** for all TW
 ## Technology Stack
 
 - **.NET 10** / ASP.NET Core 10
-- **Entity Framework Core 10** with **PostgreSQL** (Neon in production)
+- **Entity Framework Core 10** with **PostgreSQL** (Fly Postgres in production — `myfamilyauth-db`, NOT Neon; verified 2026-07-05)
 - **Blazor WebAssembly** (Bootstrap 5, Bootstrap Icons)
 - **JWT Bearer** authentication with BCrypt password hashing
 - **Serilog** for structured logging
@@ -393,7 +393,7 @@ Both the API and Web are containerized and deployed to **Fly.io** via GitHub Act
 |---|---|---|
 | API | `myfamilyauth-api` | Always-on (1 machine minimum), 512 MB RAM |
 | Web | `myfamilyauth-web` | nginx serving Blazor WASM static files, 256 MB RAM |
-| Database | Neon PostgreSQL | Serverless Postgres, auto-managed |
+| Database | Fly Postgres (`myfamilyauth-db`, unmanaged) | Reachable only via internal `myfamilyauth-db.flycast` address. ⚠️ Not Neon — verified 2026-07-05. No confirmed automated backup policy; needs one before Phase 7. |
 
 ### Fly.io Secrets (API)
 
@@ -401,7 +401,7 @@ These must be set on the `myfamilyauth-api` Fly app:
 
 | Secret | Description |
 |---|---|
-| `ConnectionStrings__PostgreSQL` | Full Neon connection string |
+| `ConnectionStrings__PostgreSQL` | Full connection string to Fly Postgres `myfamilyauth-db` (internal `.flycast` address — NOT Neon) |
 | `JwtSettings__Secret` | Long random string (shared with all client apps) |
 | `JwtSettings__Issuer` | `TWR.MyFamilyAuth` |
 | `JwtSettings__Audience` | `twr-apps` |
