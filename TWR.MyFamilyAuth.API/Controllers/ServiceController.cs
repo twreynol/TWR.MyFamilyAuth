@@ -83,6 +83,32 @@ public class ServiceController : ControllerBase
         _logger.LogInformation("ServiceController: password set for {Email}", email);
         return Ok();
     }
+
+    /// <summary>
+    /// GET /api/service/users/{subjectUserId}/grantees?permission=Medical — returns the UserIds
+    /// of everyone who currently holds the given permission granted BY subjectUserId (i.e. who is
+    /// allowed to see subjectUserId's data for that permission). Used by MyMessages to compute the
+    /// fan-out recipient list for an Urgent System message at send time — see the Enhanced
+    /// Messaging Spec §4: "Fan-out is computed once, at send time" from the live grant list.
+    /// Does not include subjectUserId themselves — the caller adds that separately.
+    /// </summary>
+    [HttpGet("users/{subjectUserId:guid}/grantees")]
+    public async Task<IActionResult> GetGrantees(Guid subjectUserId, [FromQuery] string permission)
+    {
+        if (!ValidateServiceKey()) return Unauthorized("Invalid service key.");
+
+        if (string.IsNullOrWhiteSpace(permission))
+            return BadRequest("permission query parameter is required.");
+
+        var grants = await _data.GetGrantsGivenAsync(subjectUserId);
+        var granteeIds = grants
+            .Where(g => g.Permissions.Contains(permission, StringComparer.OrdinalIgnoreCase))
+            .Select(g => g.GranteeId)
+            .Distinct()
+            .ToArray();
+
+        return Ok(new { SubjectUserId = subjectUserId, Permission = permission, GranteeIds = granteeIds });
+    }
 }
 
 public record ServiceCreateUserRequest(
