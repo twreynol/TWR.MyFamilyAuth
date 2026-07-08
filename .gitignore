@@ -365,4 +365,4 @@ FodyWeavers.xsd
 .env
 
 # Suite-wide secrets audit — must never be committed anywhere
-SECRETS_TO_KEEP.md
+NeverOnGit/
