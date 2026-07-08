@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 # Docker secrets
 .env
+
+# Suite-wide secrets audit — must never be committed anywhere
+SECRETS_TO_KEEP.md
