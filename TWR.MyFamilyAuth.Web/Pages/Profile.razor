@@ -115,11 +115,13 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">DND Start</label>
-                            <input type="time" class="form-control" @bind="_dndStart" />
+                            <input type="time" class="form-control" value="@_dndStart"
+                                   @onchange="@(e => _dndStart = e.Value?.ToString() ?? string.Empty)" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">DND End</label>
-                            <input type="time" class="form-control" @bind="_dndEnd" />
+                            <input type="time" class="form-control" value="@_dndEnd"
+                                   @onchange="@(e => _dndEnd = e.Value?.ToString() ?? string.Empty)" />
                         </div>
                     </div>
                     <button class="btn btn-primary" @onclick="SaveSettings" disabled="@_settingsLoading">
