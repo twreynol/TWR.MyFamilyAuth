@@ -94,22 +94,25 @@ public class AuthController : ControllerBase
         return result is null ? Unauthorized("Invalid or expired verification code.") : Ok(result);
     }
 
-    // V2 — GET /api/auth/me — full profile + all permissions granted to the caller
+    // V2 — GET /api/auth/me — full profile + all permissions granted to the caller.
+    // ?appClientId=X additionally returns that app's settings alongside global settings.
     [HttpGet("me")]
     [Authorize]
-    public async Task<IActionResult> Me()
+    public async Task<IActionResult> Me([FromQuery] string? appClientId)
     {
         var callerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user     = await _data.GetUserByIdAsync(callerId);
         if (user is null) return NotFound();
 
         var permissions = await _data.GetPermissionsForUserAsync(callerId);
+        var settings     = await _data.GetUserSettingsAsync(callerId, appClientId);
 
         return Ok(new UserProfileResponse(
             user.Id, user.FirstName, user.LastName, user.FullName,
             user.Email, user.Role, user.IsWard, user.GuardianId,
             [.. permissions],
-            user.CreatedAt, user.LastAccessedAt
+            user.CreatedAt, user.LastAccessedAt,
+            [.. settings.Select(s => new Contracts.DTOs.Users.UserSettingDto(s.AppClientId, s.SettingKey, s.SettingValue))]
         ));
     }
 

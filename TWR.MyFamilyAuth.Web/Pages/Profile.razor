@@ -100,6 +100,35 @@
                 </div>
             </div>
 
+            <!-- Preferences (global settings, shared across every app) -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header fw-semibold">Preferences</div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(_settingsMessage))
+                    {
+                        <div class="alert @(_settingsError ? "alert-danger" : "alert-success") py-2">@_settingsMessage</div>
+                    }
+                    <p class="text-muted small">
+                        Do Not Disturb — suppress non-critical notifications during this window,
+                        across every app in the suite.
+                    </p>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">DND Start</label>
+                            <input type="time" class="form-control" @bind="_dndStart" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">DND End</label>
+                            <input type="time" class="form-control" @bind="_dndEnd" />
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" @onclick="SaveSettings" disabled="@_settingsLoading">
+                        @if (_settingsLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                        Save Preferences
+                    </button>
+                </div>
+            </div>
+
             <!-- App Access -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header fw-semibold">App Access</div>
@@ -223,6 +252,13 @@
     private string  _pwMessage  = string.Empty;
     private bool    _pwError;
 
+    // Preferences (global UserSetting rows)
+    private string  _dndStart         = string.Empty;
+    private string  _dndEnd           = string.Empty;
+    private bool    _settingsLoading;
+    private string  _settingsMessage  = string.Empty;
+    private bool    _settingsError;
+
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -247,6 +283,10 @@
         _appAccess = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-user/{sub}") ?? [];
 
         _trustedDevices = await Http.GetFromJsonAsync<List<TrustedDeviceVm>>($"{ApiRoutes.Users}/{sub}/trusted-devices") ?? [];
+
+        var settings = await Http.GetFromJsonAsync<List<UserSettingDto>>($"{ApiRoutes.Users}/{sub}/settings") ?? [];
+        _dndStart = settings.FirstOrDefault(s => s.SettingKey == "DndStart")?.SettingValue ?? string.Empty;
+        _dndEnd   = settings.FirstOrDefault(s => s.SettingKey == "DndEnd")?.SettingValue ?? string.Empty;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -269,6 +309,24 @@
         foreach (var d in _trustedDevices.ToList())
             await Http.DeleteAsync($"{ApiRoutes.Users}/{_userId}/trusted-devices/{d.Id}");
         _trustedDevices = [];
+    }
+
+    private async Task SaveSettings()
+    {
+        _settingsMessage = string.Empty;
+        if (_userId is null) return;
+        _settingsLoading = true;
+
+        var req = new UpdateUserSettingsRequest(
+        [
+            new UserSettingDto(null, "DndStart", _dndStart),
+            new UserSettingDto(null, "DndEnd", _dndEnd)
+        ]);
+
+        var r = await Http.PutAsJsonAsync($"{ApiRoutes.Users}/{_userId}/settings", req);
+        _settingsLoading = false;
+        _settingsMessage = r.IsSuccessStatusCode ? "Preferences saved." : $"Error: {await r.Content.ReadAsStringAsync()}";
+        _settingsError   = !r.IsSuccessStatusCode;
     }
 
     private async Task SaveProfile()
