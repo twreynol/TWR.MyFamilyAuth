@@ -9,17 +9,19 @@ namespace TWR.MyFamilyAuth.Web.Services;
 
 public class AuthService : AuthenticationStateProvider, IAuthService
 {
+    private const string RefreshTokenStorageKey = "mfa_refresh_token";
+
     private readonly HttpClient _http;
     private readonly IJSRuntime _js;
+    private readonly AuthTokenStore _store;
     private ClaimsPrincipal _currentUser = new(new ClaimsIdentity());
-    private string? _token;
-    private string? _refreshToken;
     private string? _pendingAppClientId;
 
-    public AuthService(HttpClient http, IJSRuntime js)
+    public AuthService(HttpClient http, IJSRuntime js, AuthTokenStore store)
     {
-        _http = http;
-        _js   = js;
+        _http  = http;
+        _js    = js;
+        _store = store;
     }
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -28,6 +30,28 @@ public class AuthService : AuthenticationStateProvider, IAuthService
     public string? LastLoginError         { get; private set; }
     public string? PendingChallengeToken  { get; private set; }
     public bool    MustChangePassword     { get; private set; }
+
+    /// <summary>
+    /// Called once at startup after the host is built. Restores a session from a
+    /// refresh token left in localStorage (e.g. after a page reload), by exchanging
+    /// it for a fresh access token — never trusts a locally-cached access token itself.
+    /// </summary>
+    public async Task InitializeAsync()
+    {
+        string? storedRefreshToken;
+        try
+        {
+            storedRefreshToken = await _js.InvokeAsync<string?>("localStorage.getItem", RefreshTokenStorageKey);
+        }
+        catch { return; } // JS interop not ready (prerender) — nothing to restore yet.
+
+        if (string.IsNullOrEmpty(storedRefreshToken))
+            return;
+
+        _store.RefreshToken = storedRefreshToken;
+        if (!await TryRefreshAsync())
+            await ClearStoredRefreshTokenAsync();
+    }
 
     public async Task<bool> LoginAsync(LoginRequest request)
     {
@@ -91,13 +115,44 @@ public class AuthService : AuthenticationStateProvider, IAuthService
         catch (Exception ex) { LastLoginError = ex.Message; return false; }
     }
 
-    private Task CompleteLoginAsync(LoginResponse result)
+    /// <summary>
+    /// Silently exchanges the current refresh token for a new access/refresh pair.
+    /// Called by RefreshTokenHandler on a 401, and by InitializeAsync on startup.
+    /// </summary>
+    public async Task<bool> TryRefreshAsync()
     {
-        _token             = result.Token;
-        _refreshToken      = result.RefreshToken;
-        MustChangePassword = result.MustChangePassword;
+        if (string.IsNullOrEmpty(_store.RefreshToken))
+            return false;
+
+        try
+        {
+            var response = await _http.PostAsJsonAsync(
+                $"{ApiRoutes.Auth}/refresh", new RefreshTokenRequest(_store.RefreshToken));
+            if (!response.IsSuccessStatusCode)
+                return false;
+
+            var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+            if (result is null) return false;
+
+            await CompleteLoginAsync(result);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private async Task CompleteLoginAsync(LoginResponse result)
+    {
+        _store.AccessToken  = result.Token;
+        _store.RefreshToken = result.RefreshToken;
+        MustChangePassword  = result.MustChangePassword;
         _http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _token);
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _store.AccessToken);
+
+        if (!string.IsNullOrEmpty(result.RefreshToken))
+        {
+            try { await _js.InvokeVoidAsync("localStorage.setItem", RefreshTokenStorageKey, result.RefreshToken); }
+            catch { /* best effort — in-memory session still works this page load */ }
+        }
 
         var identity = new ClaimsIdentity(new[]
         {
@@ -109,24 +164,30 @@ public class AuthService : AuthenticationStateProvider, IAuthService
 
         _currentUser = new ClaimsPrincipal(identity);
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-        return Task.CompletedTask;
     }
 
     public async Task LogoutAsync()
     {
-        if (!string.IsNullOrEmpty(_refreshToken))
+        if (!string.IsNullOrEmpty(_store.RefreshToken))
         {
-            try { await _http.PostAsJsonAsync($"{ApiRoutes.Auth}/logout", new RefreshTokenRequest(_refreshToken)); }
+            try { await _http.PostAsJsonAsync($"{ApiRoutes.Auth}/logout", new RefreshTokenRequest(_store.RefreshToken)); }
             catch { /* best effort */ }
         }
-        _token        = null;
-        _refreshToken = null;
+        _store.AccessToken  = null;
+        _store.RefreshToken = null;
         _http.DefaultRequestHeaders.Authorization = null;
-        _currentUser  = new ClaimsPrincipal(new ClaimsIdentity());
+        _currentUser = new ClaimsPrincipal(new ClaimsIdentity());
+        await ClearStoredRefreshTokenAsync();
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
-    public string? GetToken() => _token;
+    private async Task ClearStoredRefreshTokenAsync()
+    {
+        try { await _js.InvokeVoidAsync("localStorage.removeItem", RefreshTokenStorageKey); }
+        catch { /* best effort */ }
+    }
+
+    public string? GetToken() => _store.AccessToken;
 
     public async Task<bool> ForgotPasswordAsync(string email)
     {

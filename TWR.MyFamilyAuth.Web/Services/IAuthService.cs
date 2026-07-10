@@ -9,6 +9,7 @@ public interface IAuthService
     bool    MustChangePassword    { get; }
     Task<bool> LoginAsync(LoginRequest request);
     Task<bool> VerifyTwoFactorAsync(string otpCode, bool trustDevice);
+    Task<bool> TryRefreshAsync();
     Task LogoutAsync();
     string? GetToken();
     Task<bool> ForgotPasswordAsync(string email);
