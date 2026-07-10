@@ -28,198 +28,270 @@
         }
         else
         {
-            <!-- Profile Info -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header fw-semibold">Profile Info</div>
-                <div class="card-body">
-                    @if (!string.IsNullOrEmpty(_profileMessage))
-                    {
-                        <div class="alert @(_profileError ? "alert-danger" : "alert-success") py-2">@_profileMessage</div>
-                    }
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">First Name</label>
-                            <input class="form-control" @bind="_firstName" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Last Name</label>
-                            <input class="form-control" @bind="_lastName" />
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" @bind="_email" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Timezone</label>
-                        <input class="form-control" @bind="_timezone" placeholder="America/Chicago" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Avatar</label>
-                        @if (!string.IsNullOrEmpty(_user.AvatarBase64))
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "info" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "info"'>
+                        <i class="bi bi-person-vcard me-1"></i>Profile Info
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "password" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "password"'>
+                        <i class="bi bi-key me-1"></i>Change Password
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "prefs" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "prefs"'>
+                        <i class="bi bi-sliders me-1"></i>Preferences
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "access" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "access"'>
+                        <i class="bi bi-grid-3x3-gap me-1"></i>App Access
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "devices" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "devices"'>
+                        <i class="bi bi-shield-lock me-1"></i>Trusted Devices
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(_activeTab == "legal" ? "active" : "")" type="button"
+                            @onclick='() => _activeTab = "legal"'>
+                        <i class="bi bi-file-earmark-text me-1"></i>Legal
+                    </button>
+                </li>
+            </ul>
+
+            @if (_activeTab == "info")
+            {
+                <!-- Profile Info -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_profileMessage))
                         {
-                            <div class="mb-2">
-                                <img src="data:image/png;base64,@_user.AvatarBase64"
-                                     style="width:64px;height:64px;object-fit:cover;border-radius:50%;"
-                                     alt="Avatar" />
+                            <div class="alert @(_profileError ? "alert-danger" : "alert-success") py-2">@_profileMessage</div>
+                        }
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">First Name</label>
+                                <input class="form-control" @bind="_firstName" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Last Name</label>
+                                <input class="form-control" @bind="_lastName" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="_email" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Timezone</label>
+                            <select class="form-select" @bind="_timezone">
+                                <option value="">— Select a timezone —</option>
+                                @foreach (var tz in UsTimeZones)
+                                {
+                                    <option value="@tz.Id">@tz.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Avatar</label>
+                            @if (!string.IsNullOrEmpty(_user.AvatarBase64))
+                            {
+                                <div class="mb-2">
+                                    <img src="data:image/png;base64,@_user.AvatarBase64"
+                                         style="width:64px;height:64px;object-fit:cover;border-radius:50%;"
+                                         alt="Avatar" />
+                                </div>
+                            }
+                            <input type="file" class="form-control" accept="image/*" />
+                        </div>
+                        <button class="btn btn-primary" @onclick="SaveProfile" disabled="@_profileLoading">
+                            @if (_profileLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "password")
+            {
+                <!-- Change Password -->
+                <div class="card shadow-sm mb-4" id="change-password">
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_pwMessage))
+                        {
+                            <div class="alert @(_pwError ? "alert-danger" : "alert-success") py-2">@_pwMessage</div>
+                        }
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <div class="input-group">
+                                <input type="@(_showCurrentPw ? "text" : "password")" class="form-control" @bind="_currentPw" />
+                                <button class="btn btn-outline-secondary" type="button" tabindex="-1"
+                                        @onclick="() => _showCurrentPw = !_showCurrentPw">
+                                    <i class="bi @(_showCurrentPw ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <div class="input-group">
+                                <input type="@(_showNewPw ? "text" : "password")" class="form-control" @bind="_newPw" />
+                                <button class="btn btn-outline-secondary" type="button" tabindex="-1"
+                                        @onclick="() => _showNewPw = !_showNewPw">
+                                    <i class="bi @(_showNewPw ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">Confirm New Password</label>
+                            <div class="input-group">
+                                <input type="@(_showConfirmPw ? "text" : "password")" class="form-control" @bind="_confirmPw" />
+                                <button class="btn btn-outline-secondary" type="button" tabindex="-1"
+                                        @onclick="() => _showConfirmPw = !_showConfirmPw">
+                                    <i class="bi @(_showConfirmPw ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn btn-warning" @onclick="ChangePassword" disabled="@_pwLoading">
+                            @if (_pwLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            Update Password
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "prefs")
+            {
+                <!-- Preferences (global settings, shared across every app) -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_settingsMessage))
+                        {
+                            <div class="alert @(_settingsError ? "alert-danger" : "alert-success") py-2">@_settingsMessage</div>
+                        }
+                        <p class="text-muted small">
+                            Do Not Disturb — suppress non-critical notifications during this window,
+                            across every app in the suite.
+                        </p>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">DND Start</label>
+                                <input type="time" class="form-control" value="@_dndStart"
+                                       @onchange="@(e => _dndStart = e.Value?.ToString() ?? string.Empty)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">DND End</label>
+                                <input type="time" class="form-control" value="@_dndEnd"
+                                       @onchange="@(e => _dndEnd = e.Value?.ToString() ?? string.Empty)" />
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" @onclick="SaveSettings" disabled="@_settingsLoading">
+                            @if (_settingsLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
+                            Save Preferences
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "access")
+            {
+                <!-- App Access -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        @if (_appAccess is null)
+                        {
+                            <div class="spinner-border spinner-border-sm"></div>
+                        }
+                        else if (!_appAccess.Any())
+                        {
+                            <p class="text-muted small mb-0">No app access granted.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var a in _appAccess)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <span><i class="bi bi-grid-3x3-gap me-2 text-muted"></i>@a.AppName</span>
+                                        <span class="badge bg-secondary">@(a.AppRole ?? "User")</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "devices")
+            {
+                <!-- Trusted Devices -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                        <span>Trusted Devices</span>
+                        @if (_trustedDevices is not null && _trustedDevices.Any())
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="RevokeAllDevices">Revoke All</button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (_trustedDevices is null)
+                        {
+                            <div class="spinner-border spinner-border-sm"></div>
+                        }
+                        else if (!_trustedDevices.Any())
+                        {
+                            <p class="text-muted small mb-0">No trusted devices.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>App</th>
+                                            <th>IP</th>
+                                            <th>Created</th>
+                                            <th>Last Used</th>
+                                            <th>Expires</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var d in _trustedDevices)
+                                        {
+                                            <tr>
+                                                <td><code>@d.AppClientId</code></td>
+                                                <td>@(d.IpAddress ?? "—")</td>
+                                                <td>@d.CreatedAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                                <td>@d.LastUsedAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                                <td>@d.ExpiresAt.ToLocalTime().ToString("MM/dd/yy")</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => RevokeDevice(d.Id)">Revoke</button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
                             </div>
                         }
-                        <input type="file" class="form-control" accept="image/*" />
                     </div>
-                    <button class="btn btn-primary" @onclick="SaveProfile" disabled="@_profileLoading">
-                        @if (_profileLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                        Save Changes
-                    </button>
                 </div>
-            </div>
-
-            <!-- Change Password -->
-            <div class="card shadow-sm mb-4" id="change-password">
-                <div class="card-header fw-semibold">Change Password</div>
-                <div class="card-body">
-                    @if (!string.IsNullOrEmpty(_pwMessage))
-                    {
-                        <div class="alert @(_pwError ? "alert-danger" : "alert-success") py-2">@_pwMessage</div>
-                    }
-                    <div class="mb-3">
-                        <label class="form-label">Current Password</label>
-                        <input type="password" class="form-control" @bind="_currentPw" />
+            }
+            else if (_activeTab == "legal")
+            {
+                <!-- Legal -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <a href="/privacy-policy" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-shield-check me-1"></i>View Privacy Policy
+                        </a>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" @bind="_newPw" />
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" @bind="_confirmPw" />
-                    </div>
-                    <button class="btn btn-warning" @onclick="ChangePassword" disabled="@_pwLoading">
-                        @if (_pwLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                        Update Password
-                    </button>
                 </div>
-            </div>
-
-            <!-- Preferences (global settings, shared across every app) -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header fw-semibold">Preferences</div>
-                <div class="card-body">
-                    @if (!string.IsNullOrEmpty(_settingsMessage))
-                    {
-                        <div class="alert @(_settingsError ? "alert-danger" : "alert-success") py-2">@_settingsMessage</div>
-                    }
-                    <p class="text-muted small">
-                        Do Not Disturb — suppress non-critical notifications during this window,
-                        across every app in the suite.
-                    </p>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">DND Start</label>
-                            <input type="time" class="form-control" value="@_dndStart"
-                                   @onchange="@(e => _dndStart = e.Value?.ToString() ?? string.Empty)" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">DND End</label>
-                            <input type="time" class="form-control" value="@_dndEnd"
-                                   @onchange="@(e => _dndEnd = e.Value?.ToString() ?? string.Empty)" />
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" @onclick="SaveSettings" disabled="@_settingsLoading">
-                        @if (_settingsLoading) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                        Save Preferences
-                    </button>
-                </div>
-            </div>
-
-            <!-- App Access -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header fw-semibold">App Access</div>
-                <div class="card-body">
-                    @if (_appAccess is null)
-                    {
-                        <div class="spinner-border spinner-border-sm"></div>
-                    }
-                    else if (!_appAccess.Any())
-                    {
-                        <p class="text-muted small mb-0">No app access granted.</p>
-                    }
-                    else
-                    {
-                        <ul class="list-group list-group-flush">
-                            @foreach (var a in _appAccess)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                    <span><i class="bi bi-grid-3x3-gap me-2 text-muted"></i>@a.AppName</span>
-                                    <span class="badge bg-secondary">@(a.AppRole ?? "User")</span>
-                                </li>
-                            }
-                        </ul>
-                    }
-                </div>
-            </div>
-
-            <!-- Trusted Devices -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-shield-lock me-2"></i>Trusted Devices</span>
-                    @if (_trustedDevices is not null && _trustedDevices.Any())
-                    {
-                        <button class="btn btn-sm btn-outline-danger" @onclick="RevokeAllDevices">Revoke All</button>
-                    }
-                </div>
-                <div class="card-body">
-                    @if (_trustedDevices is null)
-                    {
-                        <div class="spinner-border spinner-border-sm"></div>
-                    }
-                    else if (!_trustedDevices.Any())
-                    {
-                        <p class="text-muted small mb-0">No trusted devices.</p>
-                    }
-                    else
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>App</th>
-                                        <th>IP</th>
-                                        <th>Created</th>
-                                        <th>Last Used</th>
-                                        <th>Expires</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var d in _trustedDevices)
-                                    {
-                                        <tr>
-                                            <td><code>@d.AppClientId</code></td>
-                                            <td>@(d.IpAddress ?? "—")</td>
-                                            <td>@d.CreatedAt.ToLocalTime().ToString("MM/dd/yy")</td>
-                                            <td>@d.LastUsedAt.ToLocalTime().ToString("MM/dd/yy")</td>
-                                            <td>@d.ExpiresAt.ToLocalTime().ToString("MM/dd/yy")</td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-danger"
-                                                        @onclick="() => RevokeDevice(d.Id)">Revoke</button>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                </div>
-            </div>
-            <!-- Legal -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header fw-semibold"><i class="bi bi-file-earmark-text me-2"></i>Legal</div>
-                <div class="card-body">
-                    <a href="/privacy-policy" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-shield-check me-1"></i>View Privacy Policy
-                    </a>
-                </div>
-            </div>
+            }
         }
     </Authorized>
 </AuthorizeView>
@@ -237,6 +309,22 @@
     private record TrustedDeviceVm(Guid Id, string AppClientId, string? IpAddress,
         DateTime CreatedAt, DateTime LastUsedAt, DateTime ExpiresAt);
 
+    private string _activeTab = "info";
+
+    private static readonly (string Id, string Label)[] UsTimeZones =
+    [
+        ("America/New_York",    "Eastern Time — New York"),
+        ("America/Chicago",     "Central Time — Chicago"),
+        ("America/Denver",      "Mountain Time — Denver"),
+        ("America/Phoenix",     "Mountain Time (no DST) — Arizona"),
+        ("America/Los_Angeles", "Pacific Time — Los Angeles"),
+        ("America/Anchorage",   "Alaska Time — Anchorage"),
+        ("Pacific/Honolulu",    "Hawaii-Aleutian Time — Honolulu"),
+        ("America/Puerto_Rico", "Atlantic Time — Puerto Rico"),
+        ("Pacific/Guam",        "Chamorro Time — Guam"),
+        ("Pacific/Pago_Pago",   "Samoa Time — American Samoa"),
+    ];
+
     // Profile fields
     private string  _firstName     = string.Empty;
     private string  _lastName      = string.Empty;
@@ -250,6 +338,9 @@
     private string  _currentPw  = string.Empty;
     private string  _newPw      = string.Empty;
     private string  _confirmPw  = string.Empty;
+    private bool    _showCurrentPw;
+    private bool    _showNewPw;
+    private bool    _showConfirmPw;
     private bool    _pwLoading;
     private string  _pwMessage  = string.Empty;
     private bool    _pwError;
@@ -282,6 +373,20 @@
             _timezone  = _user.TimeZoneId ?? string.Empty;
         }
 
+        if (string.IsNullOrEmpty(_timezone))
+        {
+            try
+            {
+                var browserTz = await JS.InvokeAsync<string>("getBrowserTimeZone");
+                if (UsTimeZones.Any(tz => tz.Id == browserTz))
+                    _timezone = browserTz;
+            }
+            catch
+            {
+                // JS interop unavailable (e.g. prerendering) — leave the dropdown unselected.
+            }
+        }
+
         _appAccess = await Http.GetFromJsonAsync<List<AppAccessDto>>($"{ApiRoutes.AppAccess}/by-user/{sub}") ?? [];
 
         _trustedDevices = await Http.GetFromJsonAsync<List<TrustedDeviceVm>>($"{ApiRoutes.Users}/{sub}/trusted-devices") ?? [];
@@ -289,12 +394,9 @@
         var settings = await Http.GetFromJsonAsync<List<UserSettingDto>>($"{ApiRoutes.Users}/{sub}/settings") ?? [];
         _dndStart = settings.FirstOrDefault(s => s.SettingKey == "DndStart")?.SettingValue ?? string.Empty;
         _dndEnd   = settings.FirstOrDefault(s => s.SettingKey == "DndEnd")?.SettingValue ?? string.Empty;
-    }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && MustChange)
-            await JS.InvokeVoidAsync("scrollToAnchor", "change-password");
+        if (MustChange)
+            _activeTab = "password";
     }
 
     private async Task RevokeDevice(Guid trustId)
