@@ -20,6 +20,7 @@ public class MyFamilyAuthDbContext : DbContext
     public DbSet<TwoFactorChallenge> TwoFactorChallenges => Set<TwoFactorChallenge>();
     public DbSet<DeviceTrust>        DeviceTrusts        => Set<DeviceTrust>();
     public DbSet<UserAccessCache>    UserAccessCaches    => Set<UserAccessCache>();
+    public DbSet<UserSetting>        UserSettings        => Set<UserSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -182,6 +183,19 @@ public class MyFamilyAuthDbContext : DbContext
             e.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
             e.HasOne<FamilyUser>().WithMany()
              .HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserSetting>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.AppClientId).HasMaxLength(100);
+            e.Property(x => x.SettingKey).IsRequired().HasMaxLength(100);
+            e.Property(x => x.SettingValue).IsRequired().HasMaxLength(500);
+            e.Property(x => x.UpdatedUtc).HasDefaultValueSql("now()");
+            e.HasIndex(x => new { x.FamilyUserId, x.AppClientId, x.SettingKey }).IsUnique();
+            e.HasOne(x => x.User).WithMany()
+             .HasForeignKey(x => x.FamilyUserId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

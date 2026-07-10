@@ -132,6 +132,53 @@ public class UsersController : ControllerBase
         return Ok();
     }
 
+    // GET /api/users/{id}/settings?appClientId=X — self, the user's Guardian, or an admin.
+    // appClientId omitted returns only global settings; provided, returns global + that app's.
+    [HttpGet("{id:guid}/settings")]
+    public async Task<IActionResult> GetSettings(Guid id, [FromQuery] string? appClientId)
+    {
+        var authResult = await AuthorizeSettingsAccessAsync(id);
+        if (authResult is not null) return authResult;
+
+        var settings = await _data.GetUserSettingsAsync(id, appClientId);
+        return Ok(settings.Select(s => new UserSettingDto(s.AppClientId, s.SettingKey, s.SettingValue)));
+    }
+
+    // PUT /api/users/{id}/settings — bulk upsert. Same authorization as GET.
+    [HttpPut("{id:guid}/settings")]
+    public async Task<IActionResult> UpdateSettings(Guid id, [FromBody] UpdateUserSettingsRequest request)
+    {
+        var authResult = await AuthorizeSettingsAccessAsync(id);
+        if (authResult is not null) return authResult;
+
+        await _data.UpsertUserSettingsAsync(id,
+            request.Settings.Select(s => (s.AppClientId, s.SettingKey, s.SettingValue)));
+        return Ok();
+    }
+
+    /// <summary>
+    /// Settings are private preferences, not shared/grantable data — access is self, the
+    /// target's Guardian (so a Guardian can manage a Ward's settings, mirroring how a
+    /// Guardian already manages other Ward profile fields), or SuperAdmin/FamilyAdmin.
+    /// Not BuddyGrant-gated. Returns null when access is allowed.
+    /// </summary>
+    private async Task<IActionResult?> AuthorizeSettingsAccessAsync(Guid targetUserId)
+    {
+        var callerId   = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var callerRole = User.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
+
+        if (callerId == targetUserId
+            || callerRole == FamilyRoles.SuperAdmin
+            || callerRole == FamilyRoles.FamilyAdmin)
+            return null;
+
+        var target = await _data.GetUserByIdAsync(targetUserId);
+        if (target is not null && target.GuardianId == callerId)
+            return null;
+
+        return Forbid();
+    }
+
     // GET /api/users/lookup?email=x — find any registered user by email.
     // Any authenticated user may look up another by email (needed for BuddyDialog add flow).
     // Returns only non-Ward, active accounts. Returns 404 if no match.
