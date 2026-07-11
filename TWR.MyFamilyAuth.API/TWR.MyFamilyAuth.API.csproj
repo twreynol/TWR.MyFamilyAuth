@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\TWR.MyFamilyAuth.DAL\TWR.MyFamilyAuth.DAL.csproj" />
@@ -27,6 +27,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>67e1fc05-6aa7-4318-bc3e-e1c1479ce756</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
