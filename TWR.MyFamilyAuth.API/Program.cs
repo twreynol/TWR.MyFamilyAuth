@@ -293,6 +293,8 @@ public class Program
         services.AddSingleton<IJwtService, JwtService>();
         services.AddScoped<IAuthAppService, AuthAppService>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IWebAuthnAppService, WebAuthnAppService>();
+        services.AddSingleton<IFido2Factory, Fido2Factory>();
 
         var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
         services.AddCors(o => o.AddPolicy("WebClients", p =>

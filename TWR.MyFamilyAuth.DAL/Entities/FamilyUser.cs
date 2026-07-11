@@ -28,4 +28,5 @@ public class FamilyUser
     public List<BuddyGrant>   BuddyGrantsGiven  { get; set; } = [];
     public List<BuddyGrant>   BuddyGrantsReceived { get; set; } = [];
     public List<RefreshToken> RefreshTokens     { get; set; } = [];
+    public List<WebAuthnCredential> WebAuthnCredentials { get; set; } = [];
 }
