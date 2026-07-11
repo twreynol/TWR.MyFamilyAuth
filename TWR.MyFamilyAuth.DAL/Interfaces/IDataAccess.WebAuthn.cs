@@ -9,6 +9,7 @@ public partial interface IDataAccess
     Task<List<WebAuthnCredential>> GetWebAuthnCredentialsByUserAndRpIdAsync(Guid familyUserId, string rpId);
     Task<WebAuthnCredential?>      GetWebAuthnCredentialByCredentialIdAsync(string credentialId);
     Task                           UpdateWebAuthnCredentialSignCountAsync(Guid credentialRecordId, long signCount);
+    Task<bool>                     DeleteWebAuthnCredentialAsync(Guid credentialRecordId, Guid familyUserId);
 
     // WebAuthn challenges
     Task<WebAuthnChallenge>  CreateWebAuthnChallengeAsync(WebAuthnChallenge challenge);

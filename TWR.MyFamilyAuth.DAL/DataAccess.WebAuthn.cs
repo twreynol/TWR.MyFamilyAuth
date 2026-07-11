@@ -59,6 +59,20 @@ public partial class DataAccess
         catch (Exception ex) { _logger.LogError(ex, "Error updating WebAuthn sign count {Id}", credentialRecordId); throw; }
     }
 
+    public async Task<bool> DeleteWebAuthnCredentialAsync(Guid credentialRecordId, Guid familyUserId)
+    {
+        using var db = CreateContext();
+        try
+        {
+            var c = await db.WebAuthnCredentials.FindAsync(credentialRecordId);
+            if (c is null || c.FamilyUserId != familyUserId) return false;
+            db.WebAuthnCredentials.Remove(c);
+            await db.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Error deleting WebAuthn credential {Id}", credentialRecordId); throw; }
+    }
+
     public async Task<WebAuthnChallenge> CreateWebAuthnChallengeAsync(WebAuthnChallenge challenge)
     {
         using var db = CreateContext();
