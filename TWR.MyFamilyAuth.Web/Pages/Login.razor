@@ -1,9 +1,6 @@
 @page "/login"
 @layout LoginLayout
 @attribute [AllowAnonymous]
-@inject IAuthService AuthService
-@inject NavigationManager Navigation
-@inject IJSRuntime JS
 @inject BuildInfoService BuildInfo
 
 <PageTitle>Sign In — MyFamilyAuth</PageTitle>
@@ -14,41 +11,8 @@
             <i class="bi bi-people-fill text-primary me-2"></i>MyFamilyAuth
         </h4>
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <div class="alert alert-danger py-2">@_error</div>
-        }
+        <LoginForm AppDisplayName="MyFamilyAuth" MustChangePasswordRedirectUrl="/profile?mustchange=1" />
 
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" @ref="_emailInput"
-                   @bind="_email" @bind:event="oninput" placeholder="you@example.com" />
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Password</label>
-            <div class="input-group">
-                <input type="@(_showPassword ? "text" : "password")" class="form-control"
-                       @bind="_password" @bind:event="oninput" @onkeydown="OnKeyDown" />
-                <button class="btn btn-outline-secondary" type="button" tabindex="-1"
-                        @onclick="() => _showPassword = !_showPassword">
-                    <i class="bi @(_showPassword ? "bi-eye-slash" : "bi-eye")"></i>
-                </button>
-            </div>
-        </div>
-        <div class="text-end mb-2">
-            <a href="/forgot-password" class="small text-decoration-none">Forgot password?</a>
-        </div>
-        <div class="mb-4 form-check">
-            <input class="form-check-input" type="checkbox" id="rememberMe" @bind="_rememberMe" />
-            <label class="form-check-label" for="rememberMe">Remember me</label>
-        </div>
-        <button class="btn btn-primary w-100" @onclick="DoLogin" disabled="@_loading">
-            @if (_loading)
-            {
-                <span class="spinner-border spinner-border-sm me-2"></span>
-            }
-            Sign In
-        </button>
         @if (_version is not null)
         {
             <p class="text-center text-muted mt-3 mb-0" style="font-size:0.7rem;opacity:0.6">
@@ -64,67 +28,11 @@
 </div>
 
 @code {
-    private string           _email        = string.Empty;
-    private string           _password     = string.Empty;
-    private string           _error        = string.Empty;
-    private bool             _loading;
-    private bool             _rememberMe;
-    private bool             _showPassword;
-    private ElementReference _emailInput;
-    private string?          _version;
+    private string? _version;
 
     protected override async Task OnInitializedAsync()
     {
         _version = await BuildInfo.GetVersionAsync();
         if (_version == "dev") _version = null;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "remember_me_email");
-            if (!string.IsNullOrEmpty(saved))
-            {
-                _email      = saved;
-                _rememberMe = true;
-                StateHasChanged();
-            }
-            try { await _emailInput.FocusAsync(); } catch { }
-        }
-    }
-
-    private async Task OnKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await DoLogin();
-    }
-
-    private async Task DoLogin()
-    {
-        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
-        {
-            _error = "Email and password are required.";
-            return;
-        }
-        _loading = true;
-        _error   = string.Empty;
-
-        if (_rememberMe)
-            await JS.InvokeVoidAsync("localStorage.setItem", "remember_me_email", _email.Trim());
-        else
-            await JS.InvokeVoidAsync("localStorage.removeItem", "remember_me_email");
-
-        var deviceTrust = await JS.InvokeAsync<string?>("localStorage.getItem", "device_trust_myfamilyauth");
-        var ok = await AuthService.LoginAsync(new LoginRequest(_email, _password,
-            AppClientId: "myfamilyauth",
-            DeviceTrustToken: deviceTrust,
-            RememberMe: _rememberMe));
-        if (ok)
-            Navigation.NavigateTo(AuthService.MustChangePassword ? "/profile?mustchange=1" : "/");
-        else if (AuthService.PendingChallengeToken != null)
-            Navigation.NavigateTo("/login/verify-2fa");
-        else
-            _error = AuthService.LastLoginError ?? "Invalid email or password.";
-        _loading = false;
     }
 }
