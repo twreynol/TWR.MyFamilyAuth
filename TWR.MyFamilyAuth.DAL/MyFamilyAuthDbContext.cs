@@ -21,6 +21,8 @@ public class MyFamilyAuthDbContext : DbContext
     public DbSet<DeviceTrust>        DeviceTrusts        => Set<DeviceTrust>();
     public DbSet<UserAccessCache>    UserAccessCaches    => Set<UserAccessCache>();
     public DbSet<UserSetting>        UserSettings        => Set<UserSetting>();
+    public DbSet<WebAuthnCredential> WebAuthnCredentials => Set<WebAuthnCredential>();
+    public DbSet<WebAuthnChallenge>  WebAuthnChallenges  => Set<WebAuthnChallenge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -196,6 +198,38 @@ public class MyFamilyAuthDbContext : DbContext
             e.HasIndex(x => new { x.FamilyUserId, x.AppClientId, x.SettingKey }).IsUnique();
             e.HasOne(x => x.User).WithMany()
              .HasForeignKey(x => x.FamilyUserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WebAuthnCredential>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.RpId).IsRequired().HasMaxLength(255);
+            e.Property(x => x.CredentialId).IsRequired().HasMaxLength(500);
+            e.Property(x => x.PublicKey).IsRequired();
+            e.Property(x => x.UserHandle).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Transports).HasMaxLength(200);
+            e.Property(x => x.DeviceLabel).HasMaxLength(200);
+            e.HasIndex(x => x.CredentialId).IsUnique();
+            e.HasOne(x => x.User).WithMany(u => u.WebAuthnCredentials)
+             .HasForeignKey(x => x.FamilyUserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.App).WithMany()
+             .HasForeignKey(x => x.RegisteredAppId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WebAuthnChallenge>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(x => x.RpId).IsRequired().HasMaxLength(255);
+            e.Property(x => x.ChallengeToken).IsRequired().HasMaxLength(100);
+            e.Property(x => x.ChallengeKind).IsRequired().HasMaxLength(20);
+            e.Property(x => x.OptionsJson).IsRequired().HasMaxLength(4000);
+            e.HasIndex(x => x.ChallengeToken).IsUnique();
+            e.HasOne(x => x.User).WithMany()
+             .HasForeignKey(x => x.FamilyUserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.App).WithMany()
+             .HasForeignKey(x => x.RegisteredAppId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

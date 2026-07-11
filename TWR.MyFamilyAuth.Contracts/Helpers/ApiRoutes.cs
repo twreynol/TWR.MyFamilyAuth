@@ -10,4 +10,5 @@ public static class ApiRoutes
     public const string AppAccess   = "api/app-access";
     public const string Legal        = "api/legal";
     public const string Invitations  = "api/invitations";
+    public const string WebAuthn     = "api/auth/webauthn";
 }
