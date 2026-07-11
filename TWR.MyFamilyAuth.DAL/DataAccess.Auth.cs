@@ -109,7 +109,7 @@ public partial class DataAccess
         catch (Exception ex) { _logger.LogError(ex, "Error deactivating app {Id}", id); throw; }
     }
 
-    public async Task<RegisteredApp?> UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null, string? supportedRoles = null)
+    public async Task<RegisteredApp?> UpdateRegisteredAppAsync(Guid id, bool? isActive = null, bool? requires2Fa = null, string? supportedRoles = null, string? allowedOrigins = null)
     {
         using var db = CreateContext();
         try
@@ -119,6 +119,7 @@ public partial class DataAccess
             if (isActive.HasValue)          app.IsActive       = isActive.Value;
             if (requires2Fa.HasValue)       app.Requires2FA    = requires2Fa.Value;
             if (supportedRoles is not null) app.SupportedRoles = supportedRoles;
+            if (allowedOrigins is not null) app.AllowedOrigins = allowedOrigins;
             app.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return app;
