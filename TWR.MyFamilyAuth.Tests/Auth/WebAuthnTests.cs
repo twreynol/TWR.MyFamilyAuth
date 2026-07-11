@@ -407,4 +407,60 @@ public class WebAuthnTests
 
         Assert.Null(result);
     }
+
+    // ── List / delete passkeys ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ListPasskeys_ValidOrigin_ReturnsCredentialsForRp()
+    {
+        var (svc, data, _) = Build();
+        var cred = new WebAuthnCredential
+        {
+            Id = Guid.NewGuid(), DeviceLabel = "My Laptop",
+            CreatedAt = DateTime.UtcNow.AddDays(-1), LastUsedAt = DateTime.UtcNow
+        };
+        data.Setup(d => d.GetWebAuthnCredentialsByUserAndRpIdAsync(UserId, "localhost"))
+            .ReturnsAsync([cred]);
+
+        var result = await svc.ListPasskeysAsync(UserId, AppClient, Origin);
+
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Equal("My Laptop", result[0].DeviceLabel);
+    }
+
+    [Fact]
+    public async Task ListPasskeys_OriginNotInAllowedList_ReturnsNull()
+    {
+        var (svc, _, _) = Build(app: AppWithOrigins(Origin));
+
+        var result = await svc.ListPasskeysAsync(UserId, AppClient, OtherOrigin);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task DeletePasskey_OwnedByCaller_DelegatesToDataAccessAndReturnsTrue()
+    {
+        var (svc, data, _) = Build();
+        var credId = Guid.NewGuid();
+        data.Setup(d => d.DeleteWebAuthnCredentialAsync(credId, UserId)).ReturnsAsync(true);
+
+        var result = await svc.DeletePasskeyAsync(UserId, credId);
+
+        Assert.True(result);
+        data.Verify(d => d.DeleteWebAuthnCredentialAsync(credId, UserId), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeletePasskey_NotOwnedByCaller_ReturnsFalse()
+    {
+        var (svc, data, _) = Build();
+        var credId = Guid.NewGuid();
+        data.Setup(d => d.DeleteWebAuthnCredentialAsync(credId, UserId)).ReturnsAsync(false);
+
+        var result = await svc.DeletePasskeyAsync(UserId, credId);
+
+        Assert.False(result);
+    }
 }

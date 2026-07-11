@@ -310,4 +310,19 @@ public class WebAuthnAppService : IWebAuthnAppService
         return new LoginResponse(token, refresh, DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
             user.Id, user.FullName, user.Email, user.Role, user.MustChangePassword);
     }
+
+    public async Task<List<PasskeyDto>?> ListPasskeysAsync(Guid familyUserId, string appClientId, string? origin)
+    {
+        var rp = await ResolveRpContextAsync(appClientId, origin);
+        if (rp is null) return null;
+
+        var creds = await _data.GetWebAuthnCredentialsByUserAndRpIdAsync(familyUserId, rp.RpId);
+        return creds
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new PasskeyDto(c.Id, c.DeviceLabel, c.CreatedAt, c.LastUsedAt))
+            .ToList();
+    }
+
+    public async Task<bool> DeletePasskeyAsync(Guid familyUserId, Guid credentialId)
+        => await _data.DeleteWebAuthnCredentialAsync(credentialId, familyUserId);
 }

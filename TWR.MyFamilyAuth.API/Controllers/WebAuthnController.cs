@@ -57,4 +57,25 @@ public class WebAuthnController : ControllerBase
         var result = await _webAuthn.CompleteLoginAsync(request, Origin, ip);
         return result is null ? Unauthorized("Passkey verification failed.") : Ok(result);
     }
+
+    [HttpGet("credentials")]
+    [Authorize]
+    public async Task<IActionResult> ListCredentials()
+    {
+        var userId      = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var appClientId = User.FindFirstValue("app_client_id");
+        if (string.IsNullOrEmpty(appClientId)) return BadRequest("Token has no app_client_id claim.");
+
+        var result = await _webAuthn.ListPasskeysAsync(userId, appClientId, Origin);
+        return result is null ? BadRequest("Unable to list passkeys for this app/origin.") : Ok(result);
+    }
+
+    [HttpDelete("credentials/{id:guid}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteCredential(Guid id)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var ok     = await _webAuthn.DeletePasskeyAsync(userId, id);
+        return ok ? Ok() : NotFound();
+    }
 }
