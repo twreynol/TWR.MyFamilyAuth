@@ -10,5 +10,6 @@ public record LoginResponse(
     bool     MustChangePassword,
     bool     RequiresTwoFactor        = false,
     string?  TwoFactorChallengeToken  = null,
-    string?  DeviceTrustToken         = null   // returned after successful 2FA verify; client stores in localStorage
+    string?  DeviceTrustToken         = null,  // returned after successful 2FA verify; client stores in localStorage
+    string?  MfaToken                 = null   // set only by apps that reissue their own JWT (e.g. MyMessages) — the underlying MyFamilyAuth token, kept for calling MyFamilyAuth-hosted services directly
 );

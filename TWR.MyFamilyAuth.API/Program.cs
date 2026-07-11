@@ -93,7 +93,7 @@ public class Program
                     Name             = "MyFinances",
                     ClientId         = "myfinances",
                     ClientSecretHash = string.Empty,
-                    AllowedOrigins   = "[\"https://localhost:7237\",\"http://localhost:5197\"]",
+                    AllowedOrigins   = "[\"https://localhost:7237\",\"http://localhost:5197\",\"https://localhost:7142\",\"http://localhost:5302\"]",
                     SupportedRoles   = "[\"Owner\",\"Viewer\"]",
                     IsActive         = true,
                     Requires2FA      = true
@@ -127,7 +127,7 @@ public class Program
                     Name             = "MyMessages",
                     ClientId         = "mymessages",
                     ClientSecretHash = string.Empty,
-                    AllowedOrigins   = "[\"http://localhost:5201\"]",
+                    AllowedOrigins   = "[\"http://localhost:5201\",\"https://localhost:7080\"]",
                     SupportedRoles   = "[\"Owner\",\"User\"]",
                     IsActive         = true,
                     Requires2FA      = false
