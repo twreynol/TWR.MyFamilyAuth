@@ -7,5 +7,6 @@ public record RegisteredAppDto(
     bool          IsActive,
     bool          Requires2FA,
     List<string>  SupportedRoles,
+    List<string>  AllowedOrigins,
     DateTime      RegisteredAt
 );

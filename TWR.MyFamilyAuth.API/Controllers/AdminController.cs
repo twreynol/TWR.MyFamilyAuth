@@ -80,10 +80,20 @@ public class AdminController : ControllerBase
         return app is null ? NotFound() : Ok();
     }
 
+    [HttpPatch("apps/{id:guid}/allowed-origins")]
+    public async Task<IActionResult> UpdateAllowedOrigins(Guid id, [FromBody] UpdateAppOriginsRequest request)
+    {
+        var originsJson = JsonSerializer.Serialize(request.AllowedOrigins);
+        var app         = await _data.UpdateRegisteredAppAsync(id, allowedOrigins: originsJson);
+        return app is null ? NotFound() : Ok(ToDto(app));
+    }
+
     private static RegisteredAppDto ToDto(RegisteredApp a)
     {
         var roles = new List<string>();
         try { roles = JsonSerializer.Deserialize<List<string>>(a.SupportedRoles) ?? roles; } catch { }
-        return new RegisteredAppDto(a.Id, a.Name, a.ClientId, a.IsActive, a.Requires2FA, roles, a.RegisteredAt);
+        var origins = new List<string>();
+        try { origins = JsonSerializer.Deserialize<List<string>>(a.AllowedOrigins) ?? origins; } catch { }
+        return new RegisteredAppDto(a.Id, a.Name, a.ClientId, a.IsActive, a.Requires2FA, roles, origins, a.RegisteredAt);
     }
 }
