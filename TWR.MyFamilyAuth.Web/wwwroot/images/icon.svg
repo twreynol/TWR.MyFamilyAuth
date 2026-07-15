@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d1b69"/>
+      <stop offset="100%" stop-color="#5b21b6"/>
+    </linearGradient>
+    <linearGradient id="sym" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#e9d5ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="176" height="176" rx="36" ry="36" fill="url(#bg)"/>
+  <rect x="8" y="8" width="176" height="88" rx="36" ry="36" fill="white" opacity="0.06"/>
+  <!-- Shield shape -->
+  <path d="M96 30 L140 50 L140 95 C140 125 96 155 96 155 C96 155 52 125 52 95 L52 50 Z" fill="none" stroke="url(#sym)" stroke-width="9" stroke-linejoin="round"/>
+  <!-- Lock body -->
+  <rect x="80" y="95" width="32" height="26" rx="5" fill="url(#sym)"/>
+  <!-- Lock shackle -->
+  <path d="M84 95 L84 83 C84 73 108 73 108 83 L108 95" fill="none" stroke="url(#sym)" stroke-width="8" stroke-linecap="round"/>
+  <!-- Keyhole -->
+  <circle cx="96" cy="105" r="5" fill="#2d1b69"/>
+  <rect x="93" y="108" width="6" height="7" rx="1" fill="#2d1b69"/>
+</svg>
